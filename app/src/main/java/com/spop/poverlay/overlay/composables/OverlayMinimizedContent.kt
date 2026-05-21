@@ -36,6 +36,7 @@ fun OverlayMinimizedContent(
     cadenceLabel: String,
     speedLabel: String,
     resistanceLabel: String,
+    isHorizontal: Boolean,
     contentAlpha: Float,
     timerLabel: String,
     timerPaused: Boolean,
@@ -49,6 +50,8 @@ fun OverlayMinimizedContent(
         when (location) {
             OverlayLocation.Top -> RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
             OverlayLocation.Bottom -> RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+            OverlayLocation.Left -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+            OverlayLocation.Right -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
         }
     }
     val expandedVerticalPadding = if (isMinimized) {
@@ -58,36 +61,34 @@ fun OverlayMinimizedContent(
     }
     val size = remember { mutableStateOf(IntSize.Zero) }
 
-    Row(
-        modifier = Modifier
-            .alpha(contentAlpha)
-            .wrapContentSize().onSizeChanged {
-                if (it.width != size.value.width || it.height != size.value.height) {
-                    size.value = it
-                    onLayout(size.value)
-                }
+    val contentModifier = Modifier
+        .alpha(contentAlpha)
+        .wrapContentSize().onSizeChanged {
+            if (it.width != size.value.width || it.height != size.value.height) {
+                size.value = it
+                onLayout(size.value)
             }
-            .padding(vertical = expandedVerticalPadding)
-            .background(
-                color = BackgroundColorDefault,
-                shape = backgroundShape,
+        }
+        .padding(vertical = expandedVerticalPadding)
+        .background(
+            color = BackgroundColorDefault,
+            shape = backgroundShape,
+        )
+        .padding(horizontal = 10.dp)
+        .padding(top = 1.dp)
+        .animateContentSize()
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onTap = {
+                    onTap()
+                },
+                onLongPress = {
+                    onLongPress()
+                }
             )
-            .padding(horizontal = 10.dp)
-            .padding(top = 1.dp)
-            .animateContentSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = {
-                        onTap()
-                    },
-                    onLongPress = {
-                        onLongPress()
-                    }
-                )
-            },
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+        }
+
+    val content = @Composable {
         val infiniteTransition = rememberInfiniteTransition()
         if (!isMinimized || showTimerWhenMinimized || timerPaused) {
 
@@ -114,30 +115,48 @@ fun OverlayMinimizedContent(
         }
 
         if (isMinimized) {
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
             OverlayTimerField(
                 modifier = Modifier.width(58.dp),
                 timerLabel = powerLabel,
                 iconDrawable = R.drawable.ic_power
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
             OverlayTimerField(
                 modifier = Modifier.width(58.dp),
                 timerLabel = cadenceLabel,
                 iconDrawable = R.drawable.ic_cadence
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
             OverlayTimerField(
                 modifier = Modifier.width(58.dp),
                 timerLabel = speedLabel,
                 iconDrawable = R.drawable.ic_speed
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
             OverlayTimerField(
                 modifier = Modifier.width(58.dp),
                 timerLabel = resistanceLabel,
                 iconDrawable = R.drawable.ic_resistance
             )
+        }
+    }
+
+    if (isHorizontal) {
+        Row(
+            modifier = contentModifier,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            content()
+        }
+    } else {
+        Column(
+            modifier = contentModifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            content()
         }
     }
 }

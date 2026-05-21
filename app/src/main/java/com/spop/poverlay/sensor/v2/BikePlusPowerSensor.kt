@@ -8,5 +8,5 @@ import android.os.IBinder
  * These spikes are referred to as "Spurious Readings" in this implementation, and rejected
  */
 class BikePlusPowerSensor(binder: IBinder) : BikePlusSensor(Command.GetPowerRepeating, binder) {
-    override fun mapValue(value: Float) = value / 100
+    override fun mapValue(value: Float) = value
 }
