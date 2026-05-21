@@ -1057,7 +1057,7 @@ private fun RideHistoryPage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Saved rides",
+                    text = "Saved Rides",
                     color = Color.White,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
@@ -2145,30 +2145,23 @@ private fun LifetimeTotalsCard(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Lifetime Totals",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = selectedPeriod.label,
-                        color = Color(0xFF34D399),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
                 Text(
-                    text = "${totals.rideCount} rides",
-                    color = Color(0xFFA1A1AA),
-                    fontSize = 14.sp
+                    text = "Totals",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = selectedPeriod.label,
+                    color = Color(0xFF34D399),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -2194,13 +2187,17 @@ private fun LifetimeTotalsCard(
 
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryStat("Rides", "${totals.rideCount}", Modifier.weight(1f))
                 SummaryStat("Distance", "${oneDecimal(totals.totalDistanceMiles)} mi", Modifier.weight(1f))
                 SummaryStat("Time", formatDuration(totals.totalDurationMs), Modifier.weight(1f))
-                SummaryStat("Calories", "${totals.totalCalories}", Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryStat("Calories", "${totals.totalCalories}", Modifier.weight(1f))
                 SummaryStat("Work", "${totals.totalWorkKilojoules.roundToInt()} kJ", Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SummaryStat("Avg Power", "${totals.averagePowerWatts.roundToInt()} W", Modifier.weight(1f))
                 SummaryStat("Avg Cadence", "${totals.averageCadenceRpm.roundToInt()} rpm", Modifier.weight(1f))
             }
@@ -2243,29 +2240,29 @@ private fun RideSummaryCard(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = summary.name ?: "Ride ${summary.id.take(8)}",
                         color = Color.White,
-                        fontSize = 21.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = formatRideDate(summary.startedAtMs),
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
+                        color = Color(0xFF71717A),
+                        fontSize = 13.sp
                     )
                 }
                 Text(
                     text = "${summary.sampleCount} samples",
                     color = Color(0xFF34D399),
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -2306,7 +2303,17 @@ private fun RideDetailPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Button(
+                    onClick = onBack,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                ) {
+                    Text("Back")
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
                     Text(
                         text = record.name ?: "Ride ${record.id.take(8)}",
                         color = Color.White,
@@ -2315,15 +2322,9 @@ private fun RideDetailPage(
                     )
                     Text(
                         text = formatRideDate(record.startedAtMs),
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
+                        color = Color(0xFF71717A),
+                        fontSize = 13.sp
                     )
-                }
-                Button(
-                    onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                ) {
-                    Text("Back")
                 }
             }
         }
@@ -2334,7 +2335,7 @@ private fun RideDetailPage(
                 color = Color(0xFF18181B),
                 shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         text = "Session Summary",
                         color = Color.White,
@@ -2355,27 +2356,29 @@ private fun RideDetailPage(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SummaryStat("Avg HR", formatHeartRate(summary.averageHeartRateBpm), Modifier.weight(1f))
-                        SummaryStat("Max HR", formatHeartRate(summary.maxHeartRateBpm), Modifier.weight(1f))
                         SummaryStat("Calories", "${summary.estimatedCalories}", Modifier.weight(1f))
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SummaryStat("Work", "${summary.totalWorkKilojoules.roundToInt()} kJ", Modifier.weight(1f))
                         SummaryStat("Status", if (summary.completedAtMs == null) "Saved" else "Done", Modifier.weight(1f))
-                        SummaryStat("Avg HR", formatHeartRate(summary.averageHeartRateBpm), Modifier.weight(1f))
+                    }
+                    if (summary.averageHeartRateBpm != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat("Avg HR", formatHeartRate(summary.averageHeartRateBpm), Modifier.weight(1f))
+                            SummaryStat("Max HR", formatHeartRate(summary.maxHeartRateBpm), Modifier.weight(1f))
+                        }
                     }
                 }
             }
         }
 
         item {
+            val hrValues = samples.mapNotNull { it.heartRateBpm }
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFF18181B),
                 shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         text = "Ride Range",
                         color = Color.White,
@@ -2406,15 +2409,17 @@ private fun RideDetailPage(
                         SummaryStat("End Res", "${lastSample?.resistance ?: 0}", Modifier.weight(1f))
                         SummaryStat("Top Speed", "${oneDecimal(samples.maxOfOrNull { it.speedMph } ?: 0f)} mph", Modifier.weight(1f))
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SummaryStat(
-                            "Heart Rate",
-                            formatHeartRateRange(samples.mapNotNull { it.heartRateBpm }),
-                            Modifier.weight(1f)
-                        )
-                        SummaryStat("Start HR", formatHeartRate(firstSample?.heartRateBpm), Modifier.weight(1f))
-                        SummaryStat("End HR", formatHeartRate(lastSample?.heartRateBpm), Modifier.weight(1f))
+                    if (hrValues.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat(
+                                "HR Range",
+                                formatHeartRateRange(hrValues),
+                                Modifier.weight(1f)
+                            )
+                            SummaryStat("Start HR", formatHeartRate(firstSample?.heartRateBpm), Modifier.weight(1f))
+                            SummaryStat("End HR", formatHeartRate(lastSample?.heartRateBpm), Modifier.weight(1f))
+                        }
                     }
                 }
             }
