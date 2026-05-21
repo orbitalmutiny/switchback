@@ -732,47 +732,171 @@ private fun ControlPage(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // ── Overlay status header ─────────────────────────────────────────
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFF18181B),
                 shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(22.dp)) {
-                    Text(
-                        text = "Switchback overlay",
-                        fontSize = 28.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Not endorsed with, associated with, or supported by Peloton",
-                        fontSize = 16.sp,
-                        color = Color(0xFFA1A1AA),
-                        fontStyle = FontStyle.Italic
-                    )
-                    Spacer(modifier = Modifier.height(22.dp))
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(64.dp),
-                        onClick = if (overlayRunning) onClickedStopOverlay else onClickedStartOverlay,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (overlayRunning) ErrorColor else Color(0xFF10B981)
-                        )
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (overlayRunning) "Stop Overlay" else "Start Overlay",
-                            fontSize = 22.sp,
-                            fontFamily = LatoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            color = if (overlayRunning) Color.White else Color.Black
-                        )
+                        Column {
+                            Text(
+                                text = "Overlay Designer",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (overlayRunning) "Overlay active" else "Overlay stopped",
+                                fontSize = 15.sp,
+                                color = if (overlayRunning) Color(0xFF34D399) else Color(0xFF71717A)
+                            )
+                        }
+                        Button(
+                            modifier = Modifier.height(56.dp),
+                            onClick = if (overlayRunning) onClickedStopOverlay else onClickedStartOverlay,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (overlayRunning) ErrorColor else Color(0xFF10B981)
+                            )
+                        ) {
+                            Text(
+                                text = if (overlayRunning) "Stop Overlay" else "Start Overlay",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (overlayRunning) Color.White else Color.Black
+                            )
+                        }
                     }
                 }
             }
         }
 
+        // ── HUD live preview ──────────────────────────────────────────────
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = "HUD Preview",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF71717A),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF09090B),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        val activeFields: List<Pair<String, String>> = listOfNotNull(
+                            ("Power" to "--- W").takeIf { hudShowPower },
+                            ("Speed" to "-- mph").takeIf { hudShowSpeed },
+                            ("Dist" to "-.-- mi").takeIf { hudShowDistance },
+                            ("Time" to "--:--").takeIf { hudShowTime },
+                            ("Resist" to "--").takeIf { hudShowResistance },
+                            ("HR" to "--- bpm").takeIf { hudShowHeartRate },
+                            ("Cal" to "---").takeIf { hudShowCalories }
+                        )
+
+                        if (activeFields.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No fields enabled",
+                                    color = Color(0xFF52525B),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                activeFields.chunked(4).forEach { rowFields ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        rowFields.forEach { (label, mockValue) ->
+                                            Surface(
+                                                modifier = Modifier.weight(1f),
+                                                color = Color(0xFF18181B),
+                                                shape = MaterialTheme.shapes.small
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(10.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = mockValue,
+                                                        fontSize = 15.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                    Text(
+                                                        text = label,
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFF71717A)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        repeat(4 - rowFields.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── HUD Modules ───────────────────────────────────────────────────
+        item { SettingsSectionTitle("HUD Modules") }
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HudModuleTile("Power", hudShowPower, onHudShowPowerToggled, Modifier.weight(1f))
+                        HudModuleTile("Speed", hudShowSpeed, onHudShowSpeedToggled, Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HudModuleTile("Distance", hudShowDistance, onHudShowDistanceToggled, Modifier.weight(1f))
+                        HudModuleTile("Time", hudShowTime, onHudShowTimeToggled, Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HudModuleTile("Resistance", hudShowResistance, onHudShowResistanceToggled, Modifier.weight(1f))
+                        HudModuleTile("Heart Rate", hudShowHeartRate, onHudShowHeartRateToggled, Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HudModuleTile("Calories", hudShowCalories, onHudShowCaloriesToggled, Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
+        // ── Overlay Behavior ──────────────────────────────────────────────
+        item { SettingsSectionTitle("Overlay Behavior") }
         item {
             SettingsToggle(
                 title = "Show timer when minimized",
@@ -780,71 +904,20 @@ private fun ControlPage(
                 onCheckedChange = onTimerShownWhenMinimizedToggled
             )
         }
-        item {
-            SettingsToggle(
-                title = "Enable experimental Bike+ resistance controls",
-                checked = bikePlusResistanceControlEnabled,
-                onCheckedChange = onBikePlusResistanceControlToggled
-            )
-        }
         if (bikePlusResistanceControlEnabled) {
             item {
                 SettingsToggle(
-                    title = "Show Bike+ resistance control overlay",
+                    title = "Show Bike+ resistance overlay",
                     checked = bikePlusResistanceControlOverlayVisible,
                     onCheckedChange = onBikePlusResistanceControlOverlayVisibleToggled
                 )
             }
-            item {
-                SettingsToggle(
-                    title = "Simulate route grade with resistance",
-                    subtitle = "Experimental: changes Bike+ resistance from active route grade. Choose preset from the route page.",
-                    checked = routeResistanceSimulationEnabled,
-                    onCheckedChange = onRouteResistanceSimulationToggled
-                )
-            }
-        }
-        item {
-            SettingsToggle(
-                title = "Enable HeartCast heart rate",
-                subtitle = "Uses the standard Bluetooth heart rate broadcast from HeartCast",
-                checked = heartRateMonitorEnabled,
-                onCheckedChange = onHeartRateMonitorEnabledToggled
-            )
-        }
-        item {
-            SettingsToggle(
-                title = "Enable ride session recording",
-                checked = rideSessionRecordingEnabled,
-                onCheckedChange = onRideSessionRecordingEnabledToggled
-            )
-        }
-        item {
-            SettingsSectionTitle("Stats HUD fields")
-        }
-        item {
-            SettingsToggle("Power", hudShowPower, onHudShowPowerToggled)
-        }
-        item {
-            SettingsToggle("Speed", hudShowSpeed, onHudShowSpeedToggled)
-        }
-        item {
-            SettingsToggle("Distance", hudShowDistance, onHudShowDistanceToggled)
-        }
-        item {
-            SettingsToggle("Time", hudShowTime, onHudShowTimeToggled)
-        }
-        item {
-            SettingsToggle("Resistance", hudShowResistance, onHudShowResistanceToggled)
-        }
-        item {
-            SettingsToggle("Heart Rate", hudShowHeartRate, onHudShowHeartRateToggled)
-        }
-        item {
-            SettingsToggle("Calories", hudShowCalories, onHudShowCaloriesToggled)
         }
         item {
             Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 onClick = onResetHud,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
             ) {
@@ -855,28 +928,60 @@ private fun ControlPage(
                 )
             }
         }
+
+        // ── Bike+ Controls (experimental, guarded, default-off) ───────────
+        item { SettingsSectionTitle("Bike+ Controls") }
         item {
-            ReleaseStatus(latestRelease, onClickedRelease)
+            SettingsToggle(
+                title = "Enable experimental Bike+ resistance controls",
+                subtitle = "Experimental. Disabled by default.",
+                checked = bikePlusResistanceControlEnabled,
+                onCheckedChange = onBikePlusResistanceControlToggled
+            )
         }
-        item {
-            Button(
-                onClick = onClickedRestartApp,
-                colors = ButtonDefaults.buttonColors(containerColor = ErrorColor),
-            ) {
-                Text(
-                    text = "Restart Switchback",
-                    fontSize = 18.sp,
-                    fontStyle = FontStyle.Italic,
-                    color = Color.White
+        if (bikePlusResistanceControlEnabled) {
+            item {
+                SettingsToggle(
+                    title = "Simulate route grade with resistance",
+                    subtitle = "Experimental: changes Bike+ resistance from active route grade. Choose preset from the route page.",
+                    checked = routeResistanceSimulationEnabled,
+                    onCheckedChange = onRouteResistanceSimulationToggled
                 )
             }
         }
-        item {
+    }
+}
+
+@Composable
+private fun HudModuleTile(
+    label: String,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(64.dp)
+            .clickable { onToggle(!enabled) },
+        color = if (enabled) Color(0xFF064E3B) else Color(0xFF27272A),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
-                "Device: ${Build.DEVICE}\t" +
-                        "SDK: ${Build.VERSION.RELEASE}\t" +
-                        "OS Version: ${Build.FINGERPRINT}\t",
-                color = Color.White.copy(alpha = .5f)
+                text = label,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (enabled) Color(0xFF6EE7B7) else Color(0xFFA1A1AA)
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle
             )
         }
     }
