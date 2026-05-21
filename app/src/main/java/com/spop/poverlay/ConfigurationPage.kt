@@ -233,7 +233,7 @@ private fun SwitchbackShell(
     onDeleteRoute: (ImportedRoute) -> Unit,
     latestRelease: Release?
 ) {
-    var activeTab by remember { mutableStateOf(AppTab.Control) }
+    var activeTab by remember { mutableStateOf(AppTab.Home) }
 
     Column(
         modifier = Modifier
@@ -241,12 +241,54 @@ private fun SwitchbackShell(
             .background(Color(0xFF09090B))
             .padding(24.dp)
     ) {
-        TopBar(activeTab)
+        TopBar(
+            activeTab = activeTab,
+            overlayRunning = overlayRunning,
+            bikePlusEnabled = bikePlusResistanceControlEnabled,
+            heartRateMonitorEnabled = heartRateMonitorEnabled
+        )
         Spacer(modifier = Modifier.height(18.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             when (activeTab) {
-                AppTab.Control -> ControlPage(
+                AppTab.Home -> HomePage(
+                    importedRoutes = importedRoutes,
+                    routeRideState = routeRideState,
+                    activeRouteId = activeRouteId,
+                    liveRideDashboardState = liveRideDashboardState,
+                    onStartRoute = onStartRoute,
+                    onAddRoute = onAddRoute,
+                    onImportGpx = onImportGpx
+                )
+                AppTab.Ride -> LiveDashboardPage(liveRideDashboardState)
+                AppTab.Routes -> RoutesPage(
+                    routes = importedRoutes,
+                    selectedRoute = selectedRoute,
+                    routeRideState = routeRideState,
+                    routeUploadPortalState = routeUploadPortalState,
+                    routeResistancePreset = routeResistancePreset,
+                    activeRouteId = activeRouteId,
+                    activeRoutePositionMeters = activeRoutePositionMeters,
+                    onRefreshRoutes = onRefreshRoutes,
+                    onImportGpx = onImportGpx,
+                    onAddRoute = onAddRoute,
+                    onCloseRouteUpload = onCloseRouteUpload,
+                    onRouteResistancePresetSelected = onRouteResistancePresetSelected,
+                    onRouteClicked = onRouteClicked,
+                    onBackFromRoute = onBackFromRoute,
+                    onStartRoute = onStartRoute,
+                    onRestartRoute = onRestartRoute,
+                    onResetRoute = onResetRoute,
+                    onDeleteRoute = onDeleteRoute
+                )
+                AppTab.History -> RideHistoryPage(
+                    rideSessionSummaries = rideSessionSummaries,
+                    selectedRideSession = selectedRideSession,
+                    onRefreshRideSessions = onRefreshRideSessions,
+                    onRideSessionClicked = onRideSessionClicked,
+                    onBackFromRideSession = onBackFromRideSession
+                )
+                AppTab.HUD -> ControlPage(
                     timerShownWhenMinimized = timerShownWhenMinimized,
                     bikePlusResistanceControlEnabled = bikePlusResistanceControlEnabled,
                     bikePlusResistanceControlOverlayVisible = bikePlusResistanceControlOverlayVisible,
@@ -281,33 +323,20 @@ private fun SwitchbackShell(
                     onClickedRelease = onClickedRelease,
                     latestRelease = latestRelease
                 )
-                AppTab.Stats -> RideHistoryPage(
-                    rideSessionSummaries = rideSessionSummaries,
-                    selectedRideSession = selectedRideSession,
-                    onRefreshRideSessions = onRefreshRideSessions,
-                    onRideSessionClicked = onRideSessionClicked,
-                    onBackFromRideSession = onBackFromRideSession
-                )
-                AppTab.Dashboard -> LiveDashboardPage(liveRideDashboardState)
-                AppTab.Routes -> RoutesPage(
-                    routes = importedRoutes,
-                    selectedRoute = selectedRoute,
-                    routeRideState = routeRideState,
-                    routeUploadPortalState = routeUploadPortalState,
-                    routeResistancePreset = routeResistancePreset,
-                    activeRouteId = activeRouteId,
-                    activeRoutePositionMeters = activeRoutePositionMeters,
-                    onRefreshRoutes = onRefreshRoutes,
-                    onImportGpx = onImportGpx,
-                    onAddRoute = onAddRoute,
-                    onCloseRouteUpload = onCloseRouteUpload,
-                    onRouteResistancePresetSelected = onRouteResistancePresetSelected,
-                    onRouteClicked = onRouteClicked,
-                    onBackFromRoute = onBackFromRoute,
-                    onStartRoute = onStartRoute,
-                    onRestartRoute = onRestartRoute,
-                    onResetRoute = onResetRoute,
-                    onDeleteRoute = onDeleteRoute
+                AppTab.Settings -> SettingsPage(
+                    timerShownWhenMinimized = timerShownWhenMinimized,
+                    bikePlusResistanceControlEnabled = bikePlusResistanceControlEnabled,
+                    routeResistanceSimulationEnabled = routeResistanceSimulationEnabled,
+                    heartRateMonitorEnabled = heartRateMonitorEnabled,
+                    rideSessionRecordingEnabled = rideSessionRecordingEnabled,
+                    onTimerShownWhenMinimizedToggled = onTimerShownWhenMinimizedToggled,
+                    onBikePlusResistanceControlToggled = onBikePlusResistanceControlToggled,
+                    onRouteResistanceSimulationToggled = onRouteResistanceSimulationToggled,
+                    onHeartRateMonitorEnabledToggled = onHeartRateMonitorEnabledToggled,
+                    onRideSessionRecordingEnabledToggled = onRideSessionRecordingEnabledToggled,
+                    onClickedRestartApp = onClickedRestartApp,
+                    onClickedRelease = onClickedRelease,
+                    latestRelease = latestRelease
                 )
             }
         }
@@ -317,49 +346,63 @@ private fun SwitchbackShell(
 }
 
 private enum class AppTab(val label: String) {
-    Control("Control"),
-    Dashboard("Dashboard"),
-    Stats("Stats"),
-    Routes("Routes")
+    Home("Home"),
+    Ride("Ride"),
+    Routes("Routes"),
+    History("History"),
+    HUD("HUD"),
+    Settings("Settings")
 }
 
 @Composable
-private fun TopBar(activeTab: AppTab) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                text = "Switchback",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF34D399)
-            )
-            Text(
-                text = when (activeTab) {
-                    AppTab.Control -> "Control"
-                    AppTab.Dashboard -> "Live Ride"
-                    AppTab.Stats -> "Ride Stats"
-                    AppTab.Routes -> "Routes"
-                },
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
-        Surface(
-            color = Color(0xFF064E3B),
-            shape = MaterialTheme.shapes.medium
+private fun TopBar(
+    activeTab: AppTab,
+    overlayRunning: Boolean,
+    bikePlusEnabled: Boolean,
+    heartRateMonitorEnabled: Boolean
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Bike+",
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                color = Color(0xFFA7F3D0),
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = "Switchback",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF34D399)
+                )
+                Text(
+                    text = activeTab.label,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatusChip(if (bikePlusEnabled) "Bike+ Controls" else "Bike+ Off")
+                StatusChip(if (heartRateMonitorEnabled) "HR Enabled" else "HR Off")
+                StatusChip(if (overlayRunning) "Overlay On" else "Overlay Off")
+            }
         }
+    }
+}
+
+@Composable
+private fun StatusChip(text: String) {
+    Surface(
+        color = Color(0xFF111827),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            color = Color(0xFF94A3B8),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -387,10 +430,260 @@ private fun BottomNav(
             ) {
                 Text(
                     text = tab.label,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HomePage(
+    importedRoutes: List<ImportedRoute>,
+    routeRideState: RouteRideState,
+    activeRouteId: String?,
+    liveRideDashboardState: LiveRideDashboardState,
+    onStartRoute: (ImportedRoute) -> Unit,
+    onAddRoute: () -> Unit,
+    onImportGpx: () -> Unit
+) {
+    val activeRoute = when (routeRideState) {
+        is RouteRideState.Active -> routeRideState.route
+        is RouteRideState.Completed -> routeRideState.route
+        RouteRideState.Idle -> importedRoutes.firstOrNull { it.id == activeRouteId }
+    }
+    val activeProgress = when (routeRideState) {
+        is RouteRideState.Active -> routeRideState.progress
+        is RouteRideState.Completed -> routeRideState.progress
+        else -> null
+    }
+    val lastRoute = importedRoutes.firstOrNull()
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            text = activeRoute?.name ?: "No active route",
+                            color = Color.White,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = activeRoute?.metadata?.distanceMeters?.let { formatMetersAsMiles(it) }
+                                ?: "Add a route to get started",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = activeProgress?.let { "${formatPercent(it.progressPercent)} complete" }
+                                ?: "Ready for your next ride",
+                            color = Color(0xFF34D399),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = {
+                                    activeRoute?.let(onStartRoute)
+                                },
+                                enabled = activeRoute != null,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (activeRoute != null) Color(0xFF10B981) else Color(0xFF27272A)
+                                )
+                            ) {
+                                Text(
+                                    text = if (activeProgress != null && !activeProgress.isComplete) "Resume route" else "Start route",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (activeRoute != null) Color.Black else Color.White
+                                )
+                            }
+                            Button(
+                                onClick = onAddRoute,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                            ) {
+                                Text(text = "Add Route", fontSize = 16.sp, color = Color.White)
+                            }
+                            Button(
+                                onClick = onImportGpx,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                            ) {
+                                Text(text = "Import GPX", fontSize = 16.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            text = "Live Summary",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat("Power", "${liveRideDashboardState.powerWatts.roundToInt()} W", Modifier.weight(1f))
+                            SummaryStat("Cadence", "${liveRideDashboardState.cadenceRpm.roundToInt()} rpm", Modifier.weight(1f))
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat("Speed", "${oneDecimal(liveRideDashboardState.speedMph)} mph", Modifier.weight(1f))
+                            SummaryStat("Resistance", liveRideDashboardState.resistance.toString(), Modifier.weight(1f))
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat("Distance", "${oneDecimal(liveRideDashboardState.distanceMiles)} mi", Modifier.weight(1f))
+                            SummaryStat("Time", DateUtils.formatElapsedTime(liveRideDashboardState.elapsedSeconds), Modifier.weight(1f))
+                        }
+                    }
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            text = "Saved Route Preview",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        if (lastRoute != null) {
+                            Text(text = lastRoute.name, color = Color(0xFF34D399), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(text = formatMetersAsMiles(lastRoute.metadata.distanceMeters), color = Color(0xFFA1A1AA), fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                SummaryStat("Climb", formatMetersAsFeet(lastRoute.metadata.totalClimbMeters), Modifier.weight(1f))
+                                SummaryStat("Max Grade", formatPercent(lastRoute.metadata.maxGradePercent), Modifier.weight(1f))
+                                SummaryStat("Avg Climb", formatPercent(lastRoute.metadata.averageClimbingGradePercent), Modifier.weight(1f))
+                            }
+                        } else {
+                            Text(
+                                text = "No saved routes yet.",
+                                color = Color(0xFFA1A1AA),
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsPage(
+    timerShownWhenMinimized: Boolean,
+    bikePlusResistanceControlEnabled: Boolean,
+    routeResistanceSimulationEnabled: Boolean,
+    heartRateMonitorEnabled: Boolean,
+    rideSessionRecordingEnabled: Boolean,
+    onTimerShownWhenMinimizedToggled: (Boolean) -> Unit,
+    onBikePlusResistanceControlToggled: (Boolean) -> Unit,
+    onRouteResistanceSimulationToggled: (Boolean) -> Unit,
+    onHeartRateMonitorEnabledToggled: (Boolean) -> Unit,
+    onRideSessionRecordingEnabledToggled: (Boolean) -> Unit,
+    onClickedRestartApp: () -> Unit,
+    onClickedRelease: (Release) -> Unit,
+    latestRelease: Release?
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Text(
+                text = "Settings",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        item {
+            SettingsToggle(
+                title = "Show timer when minimized",
+                checked = timerShownWhenMinimized,
+                onCheckedChange = onTimerShownWhenMinimizedToggled
+            )
+        }
+        item {
+            SettingsToggle(
+                title = "Enable experimental Bike+ resistance controls",
+                checked = bikePlusResistanceControlEnabled,
+                onCheckedChange = onBikePlusResistanceControlToggled
+            )
+        }
+        if (bikePlusResistanceControlEnabled) {
+            item {
+                SettingsToggle(
+                    title = "Simulate route grade with resistance",
+                    subtitle = "Experimental: changes Bike+ resistance from active route grade.",
+                    checked = routeResistanceSimulationEnabled,
+                    onCheckedChange = onRouteResistanceSimulationToggled
+                )
+            }
+        }
+        item {
+            SettingsToggle(
+                title = "Enable HeartCast heart rate",
+                subtitle = "Uses the standard Bluetooth heart rate broadcast from HeartCast",
+                checked = heartRateMonitorEnabled,
+                onCheckedChange = onHeartRateMonitorEnabledToggled
+            )
+        }
+        item {
+            SettingsToggle(
+                title = "Enable ride session recording",
+                checked = rideSessionRecordingEnabled,
+                onCheckedChange = onRideSessionRecordingEnabledToggled
+            )
+        }
+        item {
+            ReleaseStatus(latestRelease, onClickedRelease)
+        }
+        item {
+            Button(
+                onClick = onClickedRestartApp,
+                colors = ButtonDefaults.buttonColors(containerColor = ErrorColor)
+            ) {
+                Text(
+                    text = "Restart Switchback",
+                    fontSize = 18.sp,
+                    fontStyle = FontStyle.Italic,
+                    color = Color.White
+                )
+            }
+        }
+        item {
+            Text(
+                "Device: ${Build.DEVICE}\tSDK: ${Build.VERSION.RELEASE}\tOS: ${Build.FINGERPRINT}",
+                color = Color.White.copy(alpha = .5f)
+            )
         }
     }
 }
