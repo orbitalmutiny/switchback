@@ -321,7 +321,9 @@ class OverlaySensorViewModel(
             elevationMeters = progress.elevationMeters,
             points = route.points,
             isComplete = progress.isComplete,
-            visualResistanceCue = latestResistance.value?.let {
+            visualResistanceCue = if (IsBikePlus) {
+                null
+            } else latestResistance.value?.let {
                 visualResistanceCue(it, smoothedGrade)
             }
         )

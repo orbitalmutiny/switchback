@@ -499,7 +499,9 @@ class ConfigurationViewModel(
                     elapsedSeconds = nextElapsed,
                     workKilojoules = nextWork,
                     routeHudState = routeHudState,
-                    visualResistanceCue = routeHudState?.let {
+                    visualResistanceCue = if (IsBikePlus) {
+                        null
+                    } else routeHudState?.let {
                         visualResistanceCue(
                             currentResistance = current.resistance,
                             gradePercent = it.gradePercent
@@ -531,10 +533,14 @@ class ConfigurationViewModel(
             elevationMeters = progress.elevationMeters,
             points = activeRoute.points,
             isComplete = progress.isComplete,
-            visualResistanceCue = visualResistanceCue(
-                currentResistance = liveRideDashboardState.value.resistance,
-                gradePercent = grade
-            )
+            visualResistanceCue = if (IsBikePlus) {
+                null
+            } else {
+                visualResistanceCue(
+                    currentResistance = liveRideDashboardState.value.resistance,
+                    gradePercent = grade
+                )
+            }
         )
     }
 

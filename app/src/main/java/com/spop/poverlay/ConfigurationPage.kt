@@ -61,6 +61,7 @@ import com.spop.poverlay.route.RouteResistancePreset
 import com.spop.poverlay.route.RouteRideState
 import com.spop.poverlay.ui.theme.ErrorColor
 import com.spop.poverlay.ui.theme.LatoFontFamily
+import com.spop.poverlay.util.IsBikePlus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -1367,10 +1368,16 @@ private fun LiveDashboardPage(
                             value = "${state.workKilojoules.toInt()} kJ",
                             modifier = Modifier.weight(1f)
                         )
-                        if (state.routeHudState != null) {
+                        if (state.routeHudState != null && !IsBikePlus) {
                             DashboardStatCard(
-                                label = if (bikePlusControlsEnabled) "Bike+ Control" else "Cue",
-                                value = if (bikePlusControlsEnabled) "Auto control" else state.routeHudState.visualResistanceCue ?: "--",
+                                label = "Cue",
+                                value = state.routeHudState.visualResistanceCue ?: "--",
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else if (state.routeHudState != null && bikePlusControlsEnabled) {
+                            DashboardStatCard(
+                                label = "Bike+ Control",
+                                value = "Auto control",
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
