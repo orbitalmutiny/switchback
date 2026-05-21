@@ -512,7 +512,7 @@ private fun HomePage(
                                 )
                             ) {
                                 Text(
-                                    text = if (activeProgress != null && !activeProgress.isComplete) "Resume route" else "Start route",
+                                    text = if (activeProgress != null && !activeProgress.isComplete) "Resume Route" else "Start Route",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (activeRoute != null) Color.Black else Color.White
