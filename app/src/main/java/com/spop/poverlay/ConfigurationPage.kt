@@ -1297,16 +1297,16 @@ private fun LiveDashboardPage(
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(18.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Column(
                     modifier = Modifier.weight(2f),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     RideRouteHeroPanel(
                         routeHudState = routeHudState,
@@ -1322,14 +1322,14 @@ private fun LiveDashboardPage(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         color = Color(0xFF18181B),
                         shape = MaterialTheme.shapes.large
                     ) {
-                        Column(modifier = Modifier.padding(24.dp)) {
+                        Column(modifier = Modifier.padding(18.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1339,7 +1339,7 @@ private fun LiveDashboardPage(
                                     Text(
                                         text = "Live Stats",
                                         color = Color.White,
-                                        fontSize = 24.sp,
+                                        fontSize = 21.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
@@ -1366,24 +1366,24 @@ private fun LiveDashboardPage(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Power", state.powerWatts.roundToInt().toString(), "W", Modifier.weight(1f))
                                 RideStatTile("Cadence", state.cadenceRpm.roundToInt().toString(), "RPM", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Heart Rate", "--", "BPM", Modifier.weight(1f))
                                 RideStatTile("Speed", oneDecimal(state.speedMph), "MPH", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Resistance", state.resistance.toString(), "%", Modifier.weight(1f))
                                 RideStatTile("Calories", state.workKilojoules.toInt().toString(), "KCAL", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Distance", oneDecimal(state.distanceMiles), "MI", Modifier.weight(1f))
                                 RideStatTile("Duration", DateUtils.formatElapsedTime(state.elapsedSeconds), "", Modifier.weight(1f))
                             }
@@ -1414,7 +1414,7 @@ private fun RideRouteHeroPanel(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(28.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1429,9 +1429,9 @@ private fun RideRouteHeroPanel(
                     Text(
                         text = routeHudState?.routeName ?: "No Active Route",
                         color = Color.White,
-                        fontSize = 42.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     Text(
                         text = if (routeHudState != null && completedMiles != null && totalMiles != null) {
@@ -1440,8 +1440,8 @@ private fun RideRouteHeroPanel(
                             "Choose a route to unlock map, grade, and elevation"
                         },
                         color = Color(0xFFA1A1AA),
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(top = 8.dp)
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
@@ -1450,7 +1450,7 @@ private fun RideRouteHeroPanel(
                     shape = MaterialTheme.shapes.large
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
@@ -1462,23 +1462,23 @@ private fun RideRouteHeroPanel(
                         Text(
                             text = routeHudState?.let { formatPercent(it.gradePercent) } ?: "--",
                             color = Color(0xFF34D399),
-                            fontSize = 54.sp,
+                            fontSize = 40.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(320.dp),
+                    .height(240.dp),
                 color = Color(0xFF09090B),
                 shape = MaterialTheme.shapes.large
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     if (routeHudState != null && routeHudState.points.size >= 2) {
                         DashboardRouteMap(
                             routeHudState = routeHudState,
@@ -1486,8 +1486,8 @@ private fun RideRouteHeroPanel(
                                 .fillMaxWidth()
                                 .weight(1f)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             DashboardStatCard(
                                 label = "Remaining Distance",
                                 value = "${oneDecimal(routeHudState.remainingMiles)} mi",
@@ -1508,7 +1508,7 @@ private fun RideRouteHeroPanel(
                             Text(
                                 text = "No route loaded",
                                 color = Color.White,
-                                fontSize = 26.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
@@ -1542,7 +1542,7 @@ private fun RideElevationPanel(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1552,7 +1552,7 @@ private fun RideElevationPanel(
                     Text(
                         text = "Elevation Profile",
                         color = Color.White,
-                        fontSize = 24.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -1575,25 +1575,25 @@ private fun RideElevationPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(190.dp),
+                    .height(150.dp),
                 color = Color(0xFF09090B),
                 shape = MaterialTheme.shapes.large
             ) {
                 if (routeHudState != null && routeHudState.points.size >= 2) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         DashboardElevationProfile(
                             routeHudState = routeHudState,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             DashboardStatCard(
                                 label = "Current",
                                 value = formatElevation(routeHudState.elevationMeters),
@@ -1638,20 +1638,20 @@ private fun RideStatTile(
         color = Color(0xFF09090B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = label,
                 color = Color(0xFF71717A),
-                fontSize = 13.sp
+                fontSize = 11.sp
             )
             Row(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = 6.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
                     text = value,
                     color = Color.White,
-                    fontSize = 36.sp,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )
                 if (unit.isNotBlank()) {
@@ -1679,7 +1679,7 @@ private fun RideResistancePanel(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1689,7 +1689,7 @@ private fun RideResistancePanel(
                     Text(
                         text = "Resistance Control",
                         color = Color.White,
-                        fontSize = 24.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -1712,7 +1712,7 @@ private fun RideResistancePanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -1720,7 +1720,7 @@ private fun RideResistancePanel(
                 shape = MaterialTheme.shapes.large
             ) {
                 Row(
-                    modifier = Modifier.padding(22.dp),
+                    modifier = Modifier.padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1733,9 +1733,9 @@ private fun RideResistancePanel(
                         Text(
                             text = "$currentResistance%",
                             color = Color.White,
-                            fontSize = 50.sp,
+                            fontSize = 38.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -1751,9 +1751,9 @@ private fun RideResistancePanel(
                                 gradePercent?.let { formatPercent(it) } ?: "--"
                             },
                             color = Color(0xFF34D399),
-                            fontSize = 50.sp,
+                            fontSize = 38.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                 }
