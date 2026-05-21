@@ -620,24 +620,54 @@ private fun SettingsPage(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
-            Text(
-                text = "Settings",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        // ── Devices ────────────────────────────────────────────────────────
+        item { SettingsSectionTitle("Devices") }
         item {
             SettingsToggle(
-                title = "Show timer when minimized",
-                checked = timerShownWhenMinimized,
-                onCheckedChange = onTimerShownWhenMinimizedToggled
+                title = "HeartCast heart rate",
+                subtitle = "Standard Bluetooth heart rate broadcast",
+                checked = heartRateMonitorEnabled,
+                onCheckedChange = onHeartRateMonitorEnabledToggled
             )
         }
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Bike+ controls",
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                    Surface(
+                        color = if (bikePlusResistanceControlEnabled) Color(0xFF064E3B) else Color(0xFF27272A),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = if (bikePlusResistanceControlEnabled) "Enabled" else "Off",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            color = if (bikePlusResistanceControlEnabled) Color(0xFF6EE7B7) else Color(0xFF71717A),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Bike+ Controls ─────────────────────────────────────────────────
+        item { SettingsSectionTitle("Bike+ Controls") }
         item {
             SettingsToggle(
                 title = "Enable experimental Bike+ resistance controls",
+                subtitle = "Experimental. Disabled by default.",
                 checked = bikePlusResistanceControlEnabled,
                 onCheckedChange = onBikePlusResistanceControlToggled
             )
@@ -646,48 +676,102 @@ private fun SettingsPage(
             item {
                 SettingsToggle(
                     title = "Simulate route grade with resistance",
-                    subtitle = "Experimental: changes Bike+ resistance from active route grade.",
+                    subtitle = "Adjusts Bike+ resistance from active route grade. Choose preset from Routes.",
                     checked = routeResistanceSimulationEnabled,
                     onCheckedChange = onRouteResistanceSimulationToggled
                 )
             }
         }
-        item {
-            SettingsToggle(
-                title = "Enable HeartCast heart rate",
-                subtitle = "Uses the standard Bluetooth heart rate broadcast from HeartCast",
-                checked = heartRateMonitorEnabled,
-                onCheckedChange = onHeartRateMonitorEnabledToggled
-            )
-        }
+
+        // ── Ride Recording ─────────────────────────────────────────────────
+        item { SettingsSectionTitle("Ride Recording") }
         item {
             SettingsToggle(
                 title = "Enable ride session recording",
+                subtitle = "Saves telemetry samples to app-private storage",
                 checked = rideSessionRecordingEnabled,
                 onCheckedChange = onRideSessionRecordingEnabledToggled
             )
         }
+
+        // ── App / System ───────────────────────────────────────────────────
+        item { SettingsSectionTitle("App / System") }
         item {
             ReleaseStatus(latestRelease, onClickedRelease)
         }
         item {
             Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 onClick = onClickedRestartApp,
                 colors = ButtonDefaults.buttonColors(containerColor = ErrorColor)
             ) {
                 Text(
                     text = "Restart Switchback",
                     fontSize = 18.sp,
-                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
             }
         }
         item {
-            Text(
-                "Device: ${Build.DEVICE}\tSDK: ${Build.VERSION.RELEASE}\tOS: ${Build.FINGERPRINT}",
-                color = Color.White.copy(alpha = .5f)
-            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "Device info",
+                        color = Color(0xFF71717A),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Text(
+                        text = "Device: ${Build.DEVICE}",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "SDK: ${Build.VERSION.RELEASE}",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "OS: ${Build.FINGERPRINT}",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        // ── Safety / Disclaimer ────────────────────────────────────────────
+        item { SettingsSectionTitle("Safety / Disclaimer") }
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Not endorsed with, associated with, or supported by Peloton Interactive, Inc.",
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "Experimental Bike+ resistance controls interact with physical hardware. Use at your own risk.",
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 14.sp
+                    )
+                }
+            }
         }
     }
 }
