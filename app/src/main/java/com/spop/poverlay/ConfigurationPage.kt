@@ -1419,6 +1419,44 @@ private fun DashboardElevationProfile(
 }
 
 @Composable
+private fun RouteMapPreview(
+    route: ImportedRoute,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val points = route.points
+        if (points.size < 2) return@Canvas
+        val minLat = points.minOf { it.latitude }
+        val maxLat = points.maxOf { it.latitude }
+        val minLon = points.minOf { it.longitude }
+        val maxLon = points.maxOf { it.longitude }
+        val latRange = max(maxLat - minLat, 0.000001)
+        val lonRange = max(maxLon - minLon, 0.000001)
+        val padding = 16f
+        val w = max(size.width - padding * 2f, 1f)
+        val h = max(size.height - padding * 2f, 1f)
+
+        fun toOffset(lat: Double, lon: Double) = Offset(
+            x = padding + (((lon - minLon) / lonRange).toFloat() * w),
+            y = padding + h - (((lat - minLat) / latRange).toFloat() * h)
+        )
+
+        val path = Path()
+        points.forEachIndexed { i, p ->
+            val o = toOffset(p.latitude, p.longitude)
+            if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
+        }
+        drawPath(path, Color(0xFF34D399), style = Stroke(width = 7f))
+        points.firstOrNull()?.let {
+            drawCircle(Color.White, radius = 10f, center = toOffset(it.latitude, it.longitude))
+        }
+        points.lastOrNull()?.let {
+            drawCircle(Color(0xFF10B981), radius = 10f, center = toOffset(it.latitude, it.longitude))
+        }
+    }
+}
+
+@Composable
 private fun RoutesPage(
     routes: List<ImportedRoute>,
     selectedRoute: ImportedRoute?,
@@ -1476,7 +1514,7 @@ private fun RoutesPage(
             ) {
                 Column {
                     Text(
-                        text = "Saved routes",
+                        text = "Saved Routes",
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
@@ -1511,6 +1549,8 @@ private fun RoutesPage(
         item {
             ActiveRouteCard(
                 routeRideState = routeRideState,
+                onResumeRoute = onStartRoute,
+                onRestartRoute = onRestartRoute,
                 onResetRoute = onResetRoute
             )
         }
@@ -1696,7 +1736,7 @@ private fun RouteSummaryCard(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1706,19 +1746,19 @@ private fun RouteSummaryCard(
                     Text(
                         text = route.name,
                         color = Color.White,
-                        fontSize = 21.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = route.id,
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
+                        color = Color(0xFF71717A),
+                        fontSize = 13.sp
                     )
                 }
                 Text(
                     text = "${route.points.size} track pts",
                     color = Color(0xFF34D399),
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1751,6 +1791,8 @@ private fun RouteSummaryCard(
 @Composable
 private fun ActiveRouteCard(
     routeRideState: RouteRideState,
+    onResumeRoute: (ImportedRoute) -> Unit,
+    onRestartRoute: (ImportedRoute) -> Unit,
     onResetRoute: () -> Unit
 ) {
     when (routeRideState) {
@@ -1759,15 +1801,17 @@ private fun ActiveRouteCard(
             title = "Active Route",
             route = routeRideState.route,
             progress = routeRideState.progress,
-            actionLabel = "Clear",
-            onAction = onResetRoute
+            onResumeRoute = { onResumeRoute(routeRideState.route) },
+            onRestartRoute = { onRestartRoute(routeRideState.route) },
+            onResetRoute = onResetRoute
         )
         is RouteRideState.Completed -> ActiveRouteContent(
             title = "Completed Route",
             route = routeRideState.route,
             progress = routeRideState.progress,
-            actionLabel = "Clear",
-            onAction = onResetRoute
+            onResumeRoute = null,
+            onRestartRoute = { onRestartRoute(routeRideState.route) },
+            onResetRoute = onResetRoute
         )
     }
 }
@@ -1777,8 +1821,9 @@ private fun ActiveRouteContent(
     title: String,
     route: ImportedRoute,
     progress: RouteProgress,
-    actionLabel: String,
-    onAction: () -> Unit
+    onResumeRoute: (() -> Unit)?,
+    onRestartRoute: (() -> Unit)?,
+    onResetRoute: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1789,27 +1834,48 @@ private fun ActiveRouteContent(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         color = Color(0xFFA7F3D0),
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = route.name,
                         color = Color.White,
-                        fontSize = 21.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Button(
-                    onClick = onAction,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                ) {
-                    Text(actionLabel)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (onResumeRoute != null) {
+                        Button(
+                            onClick = onResumeRoute,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF10B981),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text("Resume", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (onRestartRoute != null) {
+                        Button(
+                            onClick = onRestartRoute,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                        ) {
+                            Text("Restart")
+                        }
+                    }
+                    Button(
+                        onClick = onResetRoute,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                    ) {
+                        Text("Clear")
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -1854,49 +1920,61 @@ private fun RouteDetailPage(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = onBack,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                ) {
+                    Text("Back")
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
                     Text(
                         text = route.name,
                         color = Color.White,
-                        fontSize = 24.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = route.id,
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
+                        color = Color(0xFF71717A),
+                        fontSize = 13.sp
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onDeleteRoute,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
+                ) {
+                    Text("Delete")
+                }
+            }
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    modifier = Modifier.height(56.dp),
+                    onClick = onStartRoute,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981),
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text(
+                        text = if (canResume) "Resume Route" else "Start Route",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (savedRoutePositionMeters > 0.0 || activeProgress != null) {
                     Button(
-                        onClick = onDeleteRoute,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
+                        modifier = Modifier.height(56.dp),
+                        onClick = onRestartRoute,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
                     ) {
-                        Text("Delete")
-                    }
-                    Button(
-                        onClick = onBack,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                    ) {
-                        Text("Back")
-                    }
-                    Button(
-                        onClick = onStartRoute,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
-                    ) {
-                        Text(
-                            text = if (canResume) "Resume Route" else "Start Route",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (savedRoutePositionMeters > 0.0 || activeProgress != null) {
-                        Button(
-                            onClick = onRestartRoute,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-                        ) {
-                            Text("Restart")
-                        }
+                        Text("Restart", fontSize = 18.sp)
                     }
                 }
             }
@@ -1908,9 +1986,49 @@ private fun RouteDetailPage(
                     title = if (activeProgress.isComplete) "Completed Route" else "Active Route",
                     route = route,
                     progress = activeProgress,
-                    actionLabel = "Clear",
-                    onAction = onResetRoute
+                    onResumeRoute = null,
+                    onRestartRoute = null,
+                    onResetRoute = onResetRoute
                 )
+            }
+        }
+
+        if (route.points.size >= 2) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Route Preview",
+                            color = Color.White,
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        RouteMapPreview(
+                            route = route,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        ElevationProfile(
+                            route = route,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SummaryStat("Start Elev", formatElevation(route.points.firstOrNull()?.elevationMeters), Modifier.weight(1f))
+                            SummaryStat("End Elev", formatElevation(route.points.lastOrNull()?.elevationMeters), Modifier.weight(1f))
+                            SummaryStat("Range", formatElevationRange(route), Modifier.weight(1f))
+                        }
+                    }
+                }
             }
         }
 
@@ -1922,7 +2040,7 @@ private fun RouteDetailPage(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "Route Preview",
+                        text = "Route Metrics",
                         color = Color.White,
                         fontSize = 21.sp,
                         fontWeight = FontWeight.Bold
@@ -1937,7 +2055,7 @@ private fun RouteDetailPage(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SummaryStat("Max Sust.", formatPercent(metadata.maxGradePercent), Modifier.weight(1f))
                         SummaryStat("Avg Climb", formatPercent(metadata.averageClimbingGradePercent), Modifier.weight(1f))
-                        SummaryStat("Distance", formatMetersAsKilometers(metadata.distanceMeters), Modifier.weight(1f))
+                        SummaryStat("Distance km", formatMetersAsKilometers(metadata.distanceMeters), Modifier.weight(1f))
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1966,36 +2084,6 @@ private fun RouteDetailPage(
                 selectedId = routeResistancePreset,
                 onSelected = onRouteResistancePresetSelected
             )
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF18181B),
-                shape = MaterialTheme.shapes.large
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Elevation Profile",
-                        color = Color.White,
-                        fontSize = 21.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ElevationProfile(
-                        route = route,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SummaryStat("Start Elev", formatElevation(route.points.firstOrNull()?.elevationMeters), Modifier.weight(1f))
-                        SummaryStat("End Elev", formatElevation(route.points.lastOrNull()?.elevationMeters), Modifier.weight(1f))
-                        SummaryStat("Range", formatElevationRange(route), Modifier.weight(1f))
-                    }
-                }
-            }
         }
     }
 }
