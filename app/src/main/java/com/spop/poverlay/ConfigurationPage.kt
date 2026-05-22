@@ -234,7 +234,7 @@ private fun SwitchbackShell(
     onDeleteRoute: (ImportedRoute) -> Unit,
     latestRelease: Release?
 ) {
-    var activeTab by remember { mutableStateOf(AppTab.Home) }
+    var activeTab by remember { mutableStateOf(AppTab.Ride) }
 
     Column(
         modifier = Modifier
@@ -252,21 +252,6 @@ private fun SwitchbackShell(
 
         Column(modifier = Modifier.weight(1f)) {
             when (activeTab) {
-                AppTab.Home -> HomePage(
-                    importedRoutes = importedRoutes,
-                    rideSessionSummaries = rideSessionSummaries,
-                    routeRideState = routeRideState,
-                    activeRouteId = activeRouteId,
-                    activeRoutePositionMeters = activeRoutePositionMeters,
-                    overlayRunning = overlayRunning,
-                    heartRateMonitorEnabled = heartRateMonitorEnabled,
-                    rideSessionRecordingEnabled = rideSessionRecordingEnabled,
-                    onStartRoute = onStartRoute,
-                    onRestartRoute = onRestartRoute,
-                    onBrowseRoutes = { activeTab = AppTab.Routes },
-                    onOpenHudDesigner = { activeTab = AppTab.HUD },
-                    onAddRoute = onAddRoute
-                )
                 AppTab.Ride -> LiveDashboardPage(
                     state = liveRideDashboardState,
                     bikePlusControlsEnabled = bikePlusResistanceControlEnabled,
@@ -357,11 +342,10 @@ private fun SwitchbackShell(
 }
 
 private enum class AppTab(val label: String) {
-    Home("Home"),
     Ride("Ride"),
+    HUD("HUD"),
     Routes("Routes"),
     History("History"),
-    HUD("HUD"),
     Settings("Settings")
 }
 
@@ -426,23 +410,25 @@ private fun BottomNav(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         AppTab.values().forEach { tab ->
-            Button(
+            val isActive = activeTab == tab
+            Surface(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(58.dp),
-                onClick = { onTabSelected(tab) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (activeTab == tab) Color(0xFF10B981) else Color(0xFF18181B),
-                    contentColor = if (activeTab == tab) Color.Black else Color.White
-                )
+                    .padding(horizontal = 6.dp)
+                    .height(48.dp)
+                    .clickable { onTabSelected(tab) },
+                color = if (isActive) Color(0xFF10B981) else Color(0xFF18181B),
+                shape = MaterialTheme.shapes.small
             ) {
                 Text(
                     text = tab.label,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    modifier = Modifier.padding(horizontal = 26.dp, vertical = 13.dp),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isActive) Color.Black else Color(0xFFE4E4E7)
                 )
             }
         }
