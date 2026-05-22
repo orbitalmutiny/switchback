@@ -254,12 +254,18 @@ private fun SwitchbackShell(
             when (activeTab) {
                 AppTab.Home -> HomePage(
                     importedRoutes = importedRoutes,
+                    rideSessionSummaries = rideSessionSummaries,
                     routeRideState = routeRideState,
                     activeRouteId = activeRouteId,
-                    liveRideDashboardState = liveRideDashboardState,
+                    activeRoutePositionMeters = activeRoutePositionMeters,
+                    overlayRunning = overlayRunning,
+                    heartRateMonitorEnabled = heartRateMonitorEnabled,
+                    rideSessionRecordingEnabled = rideSessionRecordingEnabled,
                     onStartRoute = onStartRoute,
-                    onAddRoute = onAddRoute,
-                    onImportGpx = onImportGpx
+                    onRestartRoute = onRestartRoute,
+                    onBrowseRoutes = { activeTab = AppTab.Routes },
+                    onOpenHudDesigner = { activeTab = AppTab.HUD },
+                    onAddRoute = onAddRoute
                 )
                 AppTab.Ride -> LiveDashboardPage(
                     state = liveRideDashboardState,
@@ -446,12 +452,18 @@ private fun BottomNav(
 @Composable
 private fun HomePage(
     importedRoutes: List<ImportedRoute>,
+    rideSessionSummaries: List<RideSessionSummary>,
     routeRideState: RouteRideState,
     activeRouteId: String?,
-    liveRideDashboardState: LiveRideDashboardState,
+    activeRoutePositionMeters: Double,
+    overlayRunning: Boolean,
+    heartRateMonitorEnabled: Boolean,
+    rideSessionRecordingEnabled: Boolean,
     onStartRoute: (ImportedRoute) -> Unit,
-    onAddRoute: () -> Unit,
-    onImportGpx: () -> Unit
+    onRestartRoute: (ImportedRoute) -> Unit,
+    onBrowseRoutes: () -> Unit,
+    onOpenHudDesigner: () -> Unit,
+    onAddRoute: () -> Unit
 ) {
     val activeRoute = when (routeRideState) {
         is RouteRideState.Active -> routeRideState.route
@@ -463,139 +475,449 @@ private fun HomePage(
         is RouteRideState.Completed -> routeRideState.progress
         else -> null
     }
-    val lastRoute = importedRoutes.firstOrNull()
+    val heroRoute = activeRoute ?: importedRoutes.firstOrNull()
+    val heroProgressMeters = activeProgress?.positionMeters
+        ?: if (heroRoute?.id == activeRouteId) activeRoutePositionMeters else 0.0
+    val heroDistanceMeters = heroRoute?.metadata?.distanceMeters ?: 0.0
+    val heroProgressPercent = if (heroDistanceMeters > 0.0) {
+        (heroProgressMeters / heroDistanceMeters * 100.0).coerceIn(0.0, 100.0)
+    } else {
+        0.0
+    }
+    val heroRemainingMeters = (heroDistanceMeters - heroProgressMeters).coerceAtLeast(0.0)
+    val heroCanResume = heroRoute != null && heroProgressMeters > 0.0 && heroProgressPercent < 99.9
+    val recentRoutes = importedRoutes
+        .filter { it.id != heroRoute?.id }
+        .take(3)
+    val latestRide = rideSessionSummaries.maxByOrNull { it.startedAtMs }
+    val weekStartMs = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+    val weeklyMiles = rideSessionSummaries
+        .filter { it.startedAtMs >= weekStartMs }
+        .sumOf { it.distanceMiles.toDouble() }
 
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        Column(
+            modifier = Modifier.weight(1.45f),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF18181B),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Column(modifier = Modifier.padding(24.dp)) {
+            HomeRideHeroCard(
+                route = heroRoute,
+                progressPercent = heroProgressPercent,
+                remainingMeters = heroRemainingMeters,
+                canResume = heroCanResume,
+                onResumeRide = { heroRoute?.let(onStartRoute) },
+                onRestartRoute = { heroRoute?.let(onRestartRoute) },
+                onChangeRoute = onBrowseRoutes,
+                onAddRoute = onAddRoute
+            )
+            RecentRoutesSection(
+                routes = recentRoutes,
+                rideSessionSummaries = rideSessionSummaries,
+                onRouteClicked = onStartRoute,
+                onBrowseRoutes = onBrowseRoutes
+            )
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            SystemReadyCard(
+                bikeReady = IsBikePlus,
+                heartRateReady = heartRateMonitorEnabled,
+                overlayReady = overlayRunning,
+                recordingReady = rideSessionRecordingEnabled
+            )
+            QuickActionsCard(
+                onBrowseRoutes = onBrowseRoutes,
+                onImportGpx = onAddRoute,
+                onOpenHudDesigner = onOpenHudDesigner
+            )
+            HomeRideSummaryCard(
+                latestRide = latestRide,
+                weeklyMiles = weeklyMiles
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeRideHeroCard(
+    route: ImportedRoute?,
+    progressPercent: Double,
+    remainingMeters: Double,
+    canResume: Boolean,
+    onResumeRide: () -> Unit,
+    onRestartRoute: () -> Unit,
+    onChangeRoute: () -> Unit,
+    onAddRoute: () -> Unit
+) {
+    val metadata = route?.metadata
+    val difficulty = metadata?.let {
+        routeDifficultyLabel(it.maxGradePercent, it.averageClimbingGradePercent)
+    } ?: "No route"
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF101815),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                text = if (canResume) "Continue your journey" else "Ready to ride",
+                color = Color(0xFF34D399),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = route?.name ?: "Choose a route to start",
+                color = Color.White,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp),
+                color = Color(0xFF0B0F0E),
+                shape = MaterialTheme.shapes.large
+            ) {
+                if (route != null) {
+                    RouteMapPreview(
+                        route = route,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(22.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
-                            text = activeRoute?.name ?: "No active route",
+                            text = "No active route",
                             color = Color.White,
-                            fontSize = 28.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = activeRoute?.metadata?.distanceMeters?.let { formatMetersAsMiles(it) }
-                                ?: "Add a route to get started",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(top = 6.dp)
+                            text = "Browse or import a GPX route to set up your next ride.",
+                            color = Color(0xFFA1A1AA),
+                            fontSize = 15.sp
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = activeProgress?.let { "${formatPercent(it.progressPercent)} complete" }
-                                ?: "Ready for your next ride",
-                            color = Color(0xFF34D399),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(
-                                onClick = {
-                                    activeRoute?.let(onStartRoute)
-                                },
-                                enabled = activeRoute != null,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (activeRoute != null) Color(0xFF10B981) else Color(0xFF27272A)
-                                )
-                            ) {
-                                Text(
-                                    text = if (activeProgress != null && !activeProgress.isComplete) "Resume Route" else "Start Route",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (activeRoute != null) Color.Black else Color.White
-                                )
-                            }
-                            Button(
-                                onClick = onAddRoute,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                            ) {
-                                Text(text = "Add Route", fontSize = 16.sp, color = Color.White)
-                            }
-                            Button(
-                                onClick = onImportGpx,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                            ) {
-                                Text(text = "Import GPX", fontSize = 16.sp, color = Color.White)
-                            }
-                        }
                     }
                 }
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF18181B),
-                    shape = MaterialTheme.shapes.large
+            Spacer(modifier = Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryStat("Progress", "${oneDecimal(progressPercent)}%", Modifier.weight(1f))
+                SummaryStat("Remaining", formatMetersAsMiles(remainingMeters), Modifier.weight(1f))
+                SummaryStat("Difficulty", difficulty, Modifier.weight(1f))
+                SummaryStat("ETA", estimateRouteTime(remainingMeters), Modifier.weight(1f))
+                SummaryStat("Climb", metadata?.let { formatMetersAsFeet(it.totalClimbMeters) } ?: "--", Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(22.dp))
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+                onClick = if (route != null) onResumeRide else onAddRoute,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981),
+                    contentColor = Color.Black
+                )
+            ) {
+                Text(
+                    text = when {
+                        route == null -> "Add Route"
+                        canResume -> "Resume Ride"
+                        else -> "Start Ride"
+                    },
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    enabled = route != null,
+                    onClick = onRestartRoute,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
                 ) {
-                    Column(modifier = Modifier.padding(24.dp)) {
-                        Text(
-                            text = "Live Summary",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
+                    Text("Restart Route")
+                }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = onChangeRoute,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                ) {
+                    Text("Change Route")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentRoutesSection(
+    routes: List<ImportedRoute>,
+    rideSessionSummaries: List<RideSessionSummary>,
+    onRouteClicked: (ImportedRoute) -> Unit,
+    onBrowseRoutes: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(22.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent Routes",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Button(
+                    onClick = onBrowseRoutes,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                ) {
+                    Text("Browse Routes")
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            if (routes.isEmpty()) {
+                Text(
+                    text = "Saved routes will appear here once imported.",
+                    color = Color(0xFFA1A1AA),
+                    fontSize = 15.sp
+                )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    routes.forEach { route ->
+                        RecentRouteCard(
+                            route = route,
+                            lastRidden = lastRiddenLabel(route, rideSessionSummaries),
+                            modifier = Modifier.weight(1f),
+                            onClick = { onRouteClicked(route) }
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            SummaryStat("Power", "${liveRideDashboardState.powerWatts.roundToInt()} W", Modifier.weight(1f))
-                            SummaryStat("Cadence", "${liveRideDashboardState.cadenceRpm.roundToInt()} rpm", Modifier.weight(1f))
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            SummaryStat("Speed", "${oneDecimal(liveRideDashboardState.speedMph)} mph", Modifier.weight(1f))
-                            SummaryStat("Resistance", liveRideDashboardState.resistance.toString(), Modifier.weight(1f))
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            SummaryStat("Distance", "${oneDecimal(liveRideDashboardState.distanceMiles)} mi", Modifier.weight(1f))
-                            SummaryStat("Time", DateUtils.formatElapsedTime(liveRideDashboardState.elapsedSeconds), Modifier.weight(1f))
-                        }
                     }
                 }
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF18181B),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Column(modifier = Modifier.padding(24.dp)) {
-                        Text(
-                            text = "Saved Route Preview",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        if (lastRoute != null) {
-                            Text(text = lastRoute.name, color = Color(0xFF34D399), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text(text = formatMetersAsMiles(lastRoute.metadata.distanceMeters), color = Color(0xFFA1A1AA), fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                SummaryStat("Climb", formatMetersAsFeet(lastRoute.metadata.totalClimbMeters), Modifier.weight(1f))
-                                SummaryStat("Max Grade", formatPercent(lastRoute.metadata.maxGradePercent), Modifier.weight(1f))
-                                SummaryStat("Avg Climb", formatPercent(lastRoute.metadata.averageClimbingGradePercent), Modifier.weight(1f))
-                            }
-                        } else {
-                            Text(
-                                text = "No saved routes yet.",
-                                color = Color(0xFFA1A1AA),
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentRouteCard(
+    route: ImportedRoute,
+    lastRidden: String,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val difficulty = routeDifficultyLabel(route.metadata.maxGradePercent, route.metadata.averageClimbingGradePercent)
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        color = Color(0xFF09090B),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = route.name,
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "$difficulty • ${formatMetersAsMiles(route.metadata.distanceMeters)}",
+                color = Color(0xFF34D399),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            ElevationProfile(
+                route = route,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = lastRidden,
+                color = Color(0xFFA1A1AA),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SystemReadyCard(
+    bikeReady: Boolean,
+    heartRateReady: Boolean,
+    overlayReady: Boolean,
+    recordingReady: Boolean
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(22.dp)) {
+            Text(
+                text = "System Ready",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ReadinessPill("Bike Connected", bikeReady, Modifier.weight(1f))
+                ReadinessPill("HR Enabled", heartRateReady, Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ReadinessPill("Overlay Ready", overlayReady, Modifier.weight(1f))
+                ReadinessPill("Recording Enabled", recordingReady, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadinessPill(
+    label: String,
+    isReady: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = if (isReady) Color(0xFF064E3B) else Color(0xFF3F1D1D),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            color = if (isReady) Color(0xFFA7F3D0) else Color(0xFFFCA5A5),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun QuickActionsCard(
+    onBrowseRoutes: () -> Unit,
+    onImportGpx: () -> Unit,
+    onOpenHudDesigner: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "Quick Actions",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            HomeActionButton(
+                title = "Browse Routes",
+                subtitle = "Open the route library and choose a ride.",
+                onClick = onBrowseRoutes
+            )
+            HomeActionButton(
+                title = "Import GPX",
+                subtitle = "Add routes from Ride with GPS, Strava, Komoot, or Garmin Connect.",
+                onClick = onImportGpx
+            )
+            HomeActionButton(
+                title = "Overlay Designer",
+                subtitle = "Customize HUD layouts, widgets, ride metrics, and stream overlays.",
+                onClick = onOpenHudDesigner
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeActionButton(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Button(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp),
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = subtitle,
+                color = Color(0xFFA1A1AA),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeRideSummaryCard(
+    latestRide: RideSessionSummary?,
+    weeklyMiles: Double
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(22.dp)) {
+            Text(
+                text = "Ride Summary",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryStat(
+                    "Last Distance",
+                    latestRide?.let { "${oneDecimal(it.distanceMiles)} mi" } ?: "--",
+                    Modifier.weight(1f)
+                )
+                SummaryStat(
+                    "Last Duration",
+                    latestRide?.let { formatDuration(it.durationMs) } ?: "--",
+                    Modifier.weight(1f)
+                )
+                SummaryStat(
+                    "Weekly Mileage",
+                    "${oneDecimal(weeklyMiles)} mi",
+                    Modifier.weight(1f)
+                )
             }
         }
     }
@@ -2006,6 +2328,28 @@ private fun AddRoutePage(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
+                        text = "Finding GPX routes",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Trusted sources include Ride with GPS, Strava exports, Komoot, and Garmin Connect. Export the route as GPX, then upload it here.",
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF18181B),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
                         text = "Fallback",
                         color = Color.White,
                         fontSize = 18.sp,
@@ -2810,6 +3154,25 @@ private fun PermissionPage(onClickedGrantPermission: () -> Unit) {
 
 private fun formatRideDate(timestampMs: Long): String =
     SimpleDateFormat("MMM d, h:mm a", Locale.US).format(Date(timestampMs))
+
+private fun lastRiddenLabel(
+    route: ImportedRoute,
+    rideSessionSummaries: List<RideSessionSummary>
+): String {
+    val lastRide = rideSessionSummaries
+        .filter { it.name == route.name }
+        .maxByOrNull { it.startedAtMs }
+    return lastRide?.let { "Last ridden ${formatRideDate(it.startedAtMs)}" } ?: "Not ridden yet"
+}
+
+private fun estimateRouteTime(remainingMeters: Double): String {
+    if (remainingMeters <= 0.0) {
+        return "--"
+    }
+    val assumedMetersPerHour = 12.0 * 1609.344
+    val durationMs = (remainingMeters / assumedMetersPerHour * 60.0 * 60.0 * 1000.0).roundToInt().toLong()
+    return formatDuration(durationMs)
+}
 
 private fun formatDuration(durationMs: Long): String {
     val totalSeconds = (durationMs / 1000L).coerceAtLeast(0L)
