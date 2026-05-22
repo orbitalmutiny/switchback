@@ -39,6 +39,12 @@ fun OverlayMinimizedContent(
     resistanceLabel: String,
     heartRateLabel: String,
     caloriesLabel: String,
+    showPower: Boolean,
+    showSpeed: Boolean,
+    showDistance: Boolean,
+    showResistance: Boolean,
+    showHeartRate: Boolean,
+    showCalories: Boolean,
     isHorizontal: Boolean,
     contentAlpha: Float,
     timerLabel: String,
@@ -118,48 +124,60 @@ fun OverlayMinimizedContent(
         }
 
         if (isMinimized) {
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = powerLabel,
-                iconDrawable = R.drawable.ic_power
-            )
+            if (showPower) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = powerLabel,
+                    iconDrawable = R.drawable.ic_power
+                )
+            }
             Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
             OverlayTimerField(
                 modifier = Modifier.width(58.dp),
                 timerLabel = cadenceLabel,
                 iconDrawable = R.drawable.ic_cadence
             )
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = speedLabel,
-                iconDrawable = R.drawable.ic_speed
-            )
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = distanceLabel,
-                iconDrawable = R.drawable.ic_distance
-            )
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = resistanceLabel,
-                iconDrawable = R.drawable.ic_resistance
-            )
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = heartRateLabel,
-                iconDrawable = R.drawable.ic_heart_rate
-            )
-            Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-            OverlayTimerField(
-                modifier = Modifier.width(58.dp),
-                timerLabel = caloriesLabel,
-                iconDrawable = R.drawable.ic_calories
-            )
+            if (showSpeed) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = speedLabel,
+                    iconDrawable = R.drawable.ic_speed
+                )
+            }
+            if (showDistance) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = distanceLabel,
+                    iconDrawable = R.drawable.ic_distance
+                )
+            }
+            if (showResistance) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = resistanceLabel,
+                    iconDrawable = R.drawable.ic_resistance
+                )
+            }
+            if (showHeartRate) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = heartRateLabel,
+                    iconDrawable = R.drawable.ic_heart_rate
+                )
+            }
+            if (showCalories) {
+                Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
+                OverlayTimerField(
+                    modifier = Modifier.width(58.dp),
+                    timerLabel = caloriesLabel,
+                    iconDrawable = R.drawable.ic_calories
+                )
+            }
         }
     }
 
