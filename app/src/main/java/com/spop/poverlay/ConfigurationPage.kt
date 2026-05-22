@@ -1048,11 +1048,6 @@ private fun SettingsPage(
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 13.sp
                     )
-                    Text(
-                        text = "OS: ${Build.FINGERPRINT}",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 13.sp
-                    )
                 }
             }
         }
