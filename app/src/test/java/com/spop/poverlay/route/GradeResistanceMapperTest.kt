@@ -29,10 +29,18 @@ class GradeResistanceMapperTest {
     }
 
     @Test
-    fun appliesPresetFloorForFlatAndDownhillGrades() {
+    fun appliesPresetFloorForFlatAndUphillGrades() {
         assertEquals(15, GradeResistanceMapper(RouteResistancePreset.Gentle).targetResistance(baselineResistance = 5, gradePercent = 0.0))
-        assertEquals(20, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = -5.0))
-        assertEquals(25, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(20, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = 0.0))
+        assertEquals(35, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 5, gradePercent = 5.0))
+    }
+
+    @Test
+    fun downhillDoesNotIncreaseResistanceToPresetFloor() {
+        assertEquals(4, GradeResistanceMapper(RouteResistancePreset.Gentle).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(3, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(0, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(10, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 30, gradePercent = -5.0, previousRequestedResistance = 10))
     }
 
     @Test
@@ -65,6 +73,6 @@ class GradeResistanceMapperTest {
     @Test
     fun clampsToResistanceRange() {
         assertEquals(100, mapper.targetResistance(baselineResistance = 100, gradePercent = 10.0, previousRequestedResistance = 99))
-        assertEquals(20, mapper.targetResistance(baselineResistance = 0, gradePercent = -10.0, previousRequestedResistance = 1))
+        assertEquals(0, mapper.targetResistance(baselineResistance = 0, gradePercent = -10.0, previousRequestedResistance = 1))
     }
 }

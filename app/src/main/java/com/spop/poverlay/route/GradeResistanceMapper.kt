@@ -13,23 +13,42 @@ class GradeResistanceMapper(
         gradePercent: Double,
         previousRequestedResistance: Int? = null
     ): Int {
-        val effectiveBaseline = baselineResistance
-            .coerceAtLeast(preset.baselineResistanceFloor)
-            .coerceIn(MinResistance, MaxResistance)
+        val isDownhill = gradePercent < 0.0
+        val effectiveBaseline = if (isDownhill) {
+            baselineResistance.coerceIn(MinResistance, MaxResistance)
+        } else {
+            baselineResistance
+                .coerceAtLeast(preset.baselineResistanceFloor)
+                .coerceIn(MinResistance, MaxResistance)
+        }
         val adjustment = if (gradePercent >= 0.0) {
             gradePercent * preset.uphillResistancePerGrade
         } else {
             gradePercent * preset.downhillResistancePerGrade
         }
-        val rawTarget = (effectiveBaseline + adjustment.roundToInt())
-            .coerceAtLeast(preset.baselineResistanceFloor)
+        val adjustedTarget = effectiveBaseline + adjustment.roundToInt()
+        val rawTarget = if (isDownhill) {
+            adjustedTarget
+        } else {
+            adjustedTarget.coerceAtLeast(preset.baselineResistanceFloor)
+        }
             .coerceIn(MinResistance, MaxResistance)
 
-        val previous = (previousRequestedResistance ?: effectiveBaseline)
-            .coerceAtLeast(preset.baselineResistanceFloor)
-        return rawTarget
+        val previous = if (isDownhill) {
+            (previousRequestedResistance ?: effectiveBaseline).coerceIn(MinResistance, MaxResistance)
+        } else {
+            (previousRequestedResistance ?: effectiveBaseline)
+                .coerceAtLeast(preset.baselineResistanceFloor)
+                .coerceIn(MinResistance, MaxResistance)
+        }
+        val rateLimitedTarget = rawTarget
             .coerceIn(previous - preset.maxStepPerWrite, previous + preset.maxStepPerWrite)
             .coerceIn(MinResistance, MaxResistance)
+        return if (isDownhill) {
+            rateLimitedTarget.coerceAtMost(previous)
+        } else {
+            rateLimitedTarget
+        }
     }
 
     fun baselineForTargetResistance(
@@ -41,8 +60,11 @@ class GradeResistanceMapper(
         } else {
             gradePercent * preset.downhillResistancePerGrade
         }
-        return (targetResistance - adjustment.roundToInt())
-            .coerceAtLeast(preset.baselineResistanceFloor)
-            .coerceIn(MinResistance, MaxResistance)
+        val baseline = targetResistance - adjustment.roundToInt()
+        return if (gradePercent < 0.0) {
+            baseline
+        } else {
+            baseline.coerceAtLeast(preset.baselineResistanceFloor)
+        }.coerceIn(MinResistance, MaxResistance)
     }
 }
