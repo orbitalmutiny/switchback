@@ -346,14 +346,27 @@ class OverlaySensorViewModel(
         gradePercent: Double,
         isRideActive: Boolean
     ) {
-        if (!isRideActive || !configurationRepository.routeResistanceSimulationEnabled.value) {
+        if (!isRideActive) {
+            Log.i(RouteResistanceLogTag, "Route resistance skipped: ride inactive")
+            return
+        }
+        if (!configurationRepository.routeResistanceSimulationEnabled.value) {
+            Log.i(RouteResistanceLogTag, "Route resistance skipped: simulation disabled")
             return
         }
         val now = SystemClock.elapsedRealtime()
         if (now < routeAutomationSuspendedUntilMs) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Route resistance skipped: manual override suspended remainingMs=${routeAutomationSuspendedUntilMs - now}"
+            )
             return
         }
-        val currentResistance = latestResistance.value ?: return
+        val currentResistance = latestResistance.value
+        if (currentResistance == null) {
+            Log.i(RouteResistanceLogTag, "Route resistance skipped: no resistance telemetry")
+            return
+        }
         val baseline = routeResistanceBaseline ?: currentResistance.also {
             routeResistanceBaseline = it
             lastRouteResistanceRequest = it
@@ -365,11 +378,19 @@ class OverlaySensorViewModel(
             previousRequestedResistance = lastRouteResistanceRequest
         )
         if (targetResistance == lastRouteResistanceRequest || routeResistanceWriteInFlight) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=$gradePercent lastRequested=$lastRouteResistanceRequest target=$targetResistance inFlight=$routeResistanceWriteInFlight"
+            )
             return
         }
         if (lastRouteResistanceWriteAtMs != 0L &&
             now - lastRouteResistanceWriteAtMs < preset.minWriteIntervalMs
         ) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Route resistance skipped: rate limited elapsedMs=${now - lastRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$targetResistance"
+            )
             return
         }
 
