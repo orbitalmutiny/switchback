@@ -3,14 +3,18 @@ package com.spop.poverlay.sensor.interfaces
 import android.content.Context
 import android.os.IBinder
 import com.spop.poverlay.sensor.v2.BikePlusPowerSensor
+import com.spop.poverlay.ConfigurationRepository
+import com.spop.poverlay.sensor.v2.BikePlusResistanceControl
 import com.spop.poverlay.sensor.v2.BikePlusResistanceSensor
 import com.spop.poverlay.sensor.v2.BikePlusRpmSensor
+import com.spop.poverlay.sensor.v2.BikePlusService
 import com.spop.poverlay.sensor.v2.getV2Binder
 import com.spop.poverlay.util.windowed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlin.coroutines.CoroutineContext
 
 class PelotonBikePlusSensorInterface(val context: Context) : SensorInterface, CoroutineScope {
@@ -38,6 +42,16 @@ class PelotonBikePlusSensorInterface(val context: Context) : SensorInterface, Co
     fun stop() {
         coroutineContext.cancelChildren()
     }
+
+    suspend fun getResistanceControl(
+        configurationRepository: ConfigurationRepository
+    ): BikePlusResistanceControl =
+        BikePlusResistanceControl(binder.first(), configurationRepository)
+
+    suspend fun getBikePlusService(
+        configurationRepository: ConfigurationRepository
+    ): BikePlusService =
+        BikePlusService(binder.first(), configurationRepository)
 
     override val power: Flow<Float>
         get() = binder.flatMapLatest {

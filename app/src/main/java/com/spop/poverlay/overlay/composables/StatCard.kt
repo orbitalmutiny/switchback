@@ -11,7 +11,21 @@ import androidx.compose.ui.unit.sp
 
 
 @Composable
-fun StatCard(name: String, value: String, unit: String, modifier: Modifier) {
+fun StatCard(
+    name: String,
+    value: String,
+    unit: String,
+    modifier: Modifier,
+    compact: Boolean = false
+) {
+    val nameSize = if (compact) 11.sp else 14.sp
+    val valueSize = when {
+        compact -> 26.sp
+        value.length >= 5 -> 34.sp
+        else -> 42.sp
+    }
+    val unitSize = if (compact) 10.sp else 12.sp
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -19,18 +33,18 @@ fun StatCard(name: String, value: String, unit: String, modifier: Modifier) {
         Text(
             text = name,
             color = Color.White,
-            fontSize = 16.sp,
+            fontSize = nameSize,
             fontWeight = FontWeight.Normal
         )
         Text(
             text = value,
             color = Color.White,
-            fontSize = 48.sp,
+            fontSize = valueSize,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = unit,
-            fontSize = 14.sp,
+            fontSize = unitSize,
             color = Color.White,
             fontWeight = FontWeight.Light
         )

@@ -3,21 +3,23 @@ package com.spop.poverlay
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.view.Gravity
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
+import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.lifecycleScope
 import com.spop.poverlay.releases.ReleaseChecker
@@ -43,6 +45,14 @@ class MainActivity : ComponentActivity() {
         }
         viewModel.requestOverlayPermission.observe(this) {
             requestScreenPermission()
+        }
+        viewModel.requestHeartRatePermissions.observe(this) {
+            heartRatePermissionRequest.launch(
+                com.spop.poverlay.sensor.hr.HeartRatePermissions.requiredPermissions()
+            )
+        }
+        viewModel.requestGpxImport.observe(this) {
+            launchGpxImport()
         }
         viewModel.requestRestart.observe(this) {
             restartGrupetto()
@@ -74,7 +84,7 @@ class MainActivity : ComponentActivity() {
     private fun restartGrupetto() {
         Toast.makeText(
             this@MainActivity,
-            HtmlCompat.fromHtml("<big>Restarting Grupetto</big>", HtmlCompat.FROM_HTML_MODE_LEGACY),
+            HtmlCompat.fromHtml("<big>Restarting Switchback</big>", HtmlCompat.FROM_HTML_MODE_LEGACY),
             Toast.LENGTH_LONG
         )
             .apply { setGravity(Gravity.CENTER, 0, 0) }
@@ -99,19 +109,80 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val heartRatePermissionRequest =
+        registerForActivityResult(RequestMultiplePermissions()) { grants ->
+            viewModel.onHeartRatePermissionsRequestCompleted(grants.values.all { it })
+        }
+
+    private val gpxImportRequest =
+        registerForActivityResult(OpenDocument()) { uri ->
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+            importGpx(uri)
+        }
+
+    private fun launchGpxImport() {
+        val pickerIntent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("*/*")
+        if (pickerIntent.resolveActivity(packageManager) == null) {
+            viewModel.importGpxRoutesFromDropFolder()
+            return
+        }
+        runCatching {
+            gpxImportRequest.launch(arrayOf("application/gpx+xml", "text/xml", "application/xml", "*/*"))
+        }.onFailure {
+            viewModel.importGpxRoutesFromDropFolder()
+        }
+    }
+
+    private fun importGpx(uri: Uri) {
+        runCatching {
+            val fileName = displayName(uri)
+                ?.substringBeforeLast(".")
+                ?.takeIf { it.isNotBlank() }
+                ?: "Imported Route"
+            val gpxText = contentResolver
+                .openInputStream(uri)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+                ?: error("Could not read selected GPX file")
+            viewModel.importGpxRoute(fileName, gpxText)
+        }.onFailure {
+            Toast.makeText(
+                this,
+                "Could not read selected GPX file",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun displayName(uri: Uri): String? {
+        var cursor: Cursor? = null
+        return try {
+            cursor = contentResolver.query(uri, null, null, null, null)
+            if (cursor != null &&
+                cursor.moveToFirst()
+            ) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) {
+                    cursor.getString(index)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        } finally {
+            cursor?.close()
+        }
+    }
+
     private fun requestScreenPermission() = Intent(
         "android.settings.action.MANAGE_OVERLAY_PERMISSION",
         Uri.parse("package:${packageName}")
     ).apply {
         overlayPermissionRequest.launch(this)
-    }
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    PTONOverlayTheme {
-        Configuration()
     }
 }

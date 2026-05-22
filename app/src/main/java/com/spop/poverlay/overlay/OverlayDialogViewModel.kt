@@ -100,9 +100,14 @@ class OverlayDialogViewModel(
     // - Keep the current progress otherwise
     fun processVerticalDrag(distance: Float): Float {
         if (abs(distance) > screenSize.height * OverlayService.VerticalMoveDragThreshold) {
-            val newLocation = verticalToggleOverlayLocation(dialogLocation.value)
+            val newLocation = if (distance < 0f) {
+                OverlayLocation.Top
+            } else {
+                OverlayLocation.Bottom
+            }
             dialogLocation.value = newLocation
             dialogGravity.value = newLocation.gravity
+            updateOrigin(dialogOrigin, x = 0f, y = 0f)
             return 0f
         } else {
             return distance // Continue drag gesture
@@ -122,11 +127,4 @@ class OverlayDialogViewModel(
         val dragRange = abs(ceil((screenSize.width - overlayWidthPx) / 2f).toInt())
         return -dragRange.toFloat()..dragRange.toFloat()
     }
-
-    private fun verticalToggleOverlayLocation(location: OverlayLocation) =
-        if (location == OverlayLocation.Bottom) {
-            OverlayLocation.Top
-        } else {
-            OverlayLocation.Bottom
-        }
 }

@@ -1,21 +1,22 @@
 package com.spop.poverlay.sensor.v2
 
 import android.os.IBinder
-import android.os.Parcel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import com.spop.poverlay.sensor.BikeData
 
-data class BikeDataHelper(val bikeData: BikeData, val command: Command) {
+data class BikeTelemetrySnapshotHelper(
+    val telemetrySnapshot: BikeTelemetrySnapshot,
+    val command: Command
+) {
     val value: Float
         get() {
             return when (command) {
-                Command.GetRpmRepeating -> bikeData.rpm.toFloat()
-                Command.GetPowerRepeating -> bikeData.power.toFloat()
-                Command.GetResistanceRepeating -> bikeData.targetResistance.toFloat()
+                Command.GetRpmRepeating -> telemetrySnapshot.cadenceRpm
+                Command.GetPowerRepeating -> telemetrySnapshot.powerWatts
+                Command.GetResistanceRepeating -> telemetrySnapshot.targetResistance.toFloat()
             }
         }
 }
@@ -63,23 +64,22 @@ abstract class BikePlusSensor(private val command: Command, private val binder: 
         .asSharedFlow()
 
     private var threadRunning = AtomicBoolean(false)
+    private val bikePlusBinderClient = BikePlusBinderClient(binder)
 
     fun start() {
         thread {
             threadRunning.set(true)
             while (threadRunning.get()) {
                 try {
-                    val parcel = Parcel.obtain()
-                    val parcel2 = Parcel.obtain()
-                    parcel.writeInterfaceToken(SERVICE_ACTION)
-                    binder.transact(14, parcel, parcel2, 0)
-                    parcel2.readException()
-                    // Skip the first integer
-                    parcel2.readInt()
-                    val bikeData = BikeData.CREATOR.createFromParcel(parcel2)
-                    mutableSensorValue.tryEmit(mapValue(BikeDataHelper(bikeData, command).value))
-                    parcel.recycle()
-                    parcel2.recycle()
+                    val telemetrySnapshot = bikePlusBinderClient.readTelemetrySnapshot()
+                    mutableSensorValue.tryEmit(
+                        mapValue(
+                            BikeTelemetrySnapshotHelper(
+                                telemetrySnapshot,
+                                command
+                            ).value
+                        )
+                    )
                     errorCounter.reset()
                     Thread.sleep(READ_DELAY)
                 } catch (e: Exception) {
