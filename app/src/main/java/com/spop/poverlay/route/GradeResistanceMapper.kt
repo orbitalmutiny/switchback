@@ -4,6 +4,7 @@ import kotlin.math.roundToInt
 
 private const val MinResistance = 0
 private const val MaxResistance = 100
+private const val DownhillStepMultiplier = 2
 
 class GradeResistanceMapper(
     private val preset: RouteResistancePreset = RouteResistancePreset.Default
@@ -41,8 +42,13 @@ class GradeResistanceMapper(
                 .coerceAtLeast(preset.baselineResistanceFloor)
                 .coerceIn(MinResistance, MaxResistance)
         }
+        val maxStep = if (isDownhill) {
+            preset.maxStepPerWrite * DownhillStepMultiplier
+        } else {
+            preset.maxStepPerWrite
+        }
         val rateLimitedTarget = rawTarget
-            .coerceIn(previous - preset.maxStepPerWrite, previous + preset.maxStepPerWrite)
+            .coerceIn(previous - maxStep, previous + maxStep)
             .coerceIn(MinResistance, MaxResistance)
         return if (isDownhill) {
             rateLimitedTarget.coerceAtMost(previous)

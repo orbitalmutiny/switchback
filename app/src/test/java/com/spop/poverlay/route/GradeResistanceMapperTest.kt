@@ -13,7 +13,7 @@ class GradeResistanceMapperTest {
 
     @Test
     fun decreasesResistanceForNegativeGrade() {
-        assertEquals(38, mapper.targetResistance(baselineResistance = 40, gradePercent = -5.0))
+        assertEquals(36, mapper.targetResistance(baselineResistance = 40, gradePercent = -5.0))
     }
 
     @Test
@@ -37,10 +37,24 @@ class GradeResistanceMapperTest {
 
     @Test
     fun downhillDoesNotIncreaseResistanceToPresetFloor() {
-        assertEquals(4, GradeResistanceMapper(RouteResistancePreset.Gentle).targetResistance(baselineResistance = 5, gradePercent = -5.0))
-        assertEquals(3, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(3, GradeResistanceMapper(RouteResistancePreset.Gentle).targetResistance(baselineResistance = 5, gradePercent = -5.0))
+        assertEquals(1, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = -5.0))
         assertEquals(0, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 5, gradePercent = -5.0))
         assertEquals(10, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 30, gradePercent = -5.0, previousRequestedResistance = 10))
+    }
+
+    @Test
+    fun downhillAllowsFasterDropThanUphillStepLimit() {
+        assertEquals(
+            36,
+            GradeResistanceMapper(RouteResistancePreset.Standard)
+                .targetResistance(baselineResistance = 50, gradePercent = -8.0, previousRequestedResistance = 40)
+        )
+        assertEquals(
+            30,
+            GradeResistanceMapper(RouteResistancePreset.Strong)
+                .targetResistance(baselineResistance = 50, gradePercent = -8.0, previousRequestedResistance = 50)
+        )
     }
 
     @Test
