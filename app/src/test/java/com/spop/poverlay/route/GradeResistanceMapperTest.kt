@@ -40,7 +40,7 @@ class GradeResistanceMapperTest {
         assertEquals(3, GradeResistanceMapper(RouteResistancePreset.Gentle).targetResistance(baselineResistance = 5, gradePercent = -5.0))
         assertEquals(1, GradeResistanceMapper(RouteResistancePreset.Standard).targetResistance(baselineResistance = 5, gradePercent = -5.0))
         assertEquals(0, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 5, gradePercent = -5.0))
-        assertEquals(10, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 30, gradePercent = -5.0, previousRequestedResistance = 10))
+        assertEquals(0, GradeResistanceMapper(RouteResistancePreset.Strong).targetResistance(baselineResistance = 30, gradePercent = -5.0, previousRequestedResistance = 10))
     }
 
     @Test
@@ -64,6 +64,16 @@ class GradeResistanceMapperTest {
             GradeResistanceMapper(RouteResistancePreset.Strong)
                 .targetResistance(baselineResistance = 5, gradePercent = 5.0)
         )
+    }
+
+    @Test
+    fun sustainedDownhillContinuesDropping() {
+        val mapper = GradeResistanceMapper(RouteResistancePreset.Standard)
+        val first = mapper.targetResistance(baselineResistance = 45, gradePercent = -5.0)
+        val second = mapper.targetResistance(baselineResistance = 45, gradePercent = -5.0, previousRequestedResistance = first)
+        val third = mapper.targetResistance(baselineResistance = 45, gradePercent = -5.0, previousRequestedResistance = second)
+        assert(second < first) { "second tick should drop further: first=$first second=$second" }
+        assert(third < second) { "third tick should drop further: second=$second third=$third" }
     }
 
     @Test

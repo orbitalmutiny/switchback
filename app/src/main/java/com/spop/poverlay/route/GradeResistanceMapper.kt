@@ -16,7 +16,8 @@ class GradeResistanceMapper(
     ): Int {
         val isDownhill = gradePercent < 0.0
         val effectiveBaseline = if (isDownhill) {
-            baselineResistance.coerceIn(MinResistance, MaxResistance)
+            minOf(baselineResistance, previousRequestedResistance ?: baselineResistance)
+                .coerceIn(MinResistance, MaxResistance)
         } else {
             baselineResistance
                 .coerceAtLeast(preset.baselineResistanceFloor)
