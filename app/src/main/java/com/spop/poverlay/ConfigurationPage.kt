@@ -1312,11 +1312,8 @@ private fun LiveDashboardPage(
                         routeHudState = routeHudState,
                         completedMiles = completedMiles,
                         totalMiles = totalMiles,
+                        bikePlusControlsEnabled = bikePlusControlsEnabled,
                         onAddRoute = onAddRoute
-                    )
-                    RideElevationPanel(
-                        routeHudState = routeHudState,
-                        bikePlusControlsEnabled = bikePlusControlsEnabled
                     )
                 }
 
@@ -1389,13 +1386,6 @@ private fun LiveDashboardPage(
                             }
                         }
                     }
-
-                    RideResistancePanel(
-                        currentResistance = state.resistance,
-                        gradePercent = routeHudState?.gradePercent,
-                        bikePlusControlsEnabled = bikePlusControlsEnabled,
-                        hasActiveRoute = routeHudState != null
-                    )
                 }
             }
         }
@@ -1407,6 +1397,7 @@ private fun RideRouteHeroPanel(
     routeHudState: com.spop.poverlay.route.RouteHudState?,
     completedMiles: Double?,
     totalMiles: Double?,
+    bikePlusControlsEnabled: Boolean,
     onAddRoute: () -> Unit
 ) {
     Surface(
@@ -1471,154 +1462,130 @@ private fun RideRouteHeroPanel(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(240.dp),
-                color = Color(0xFF09090B),
-                shape = MaterialTheme.shapes.large
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    if (routeHudState != null && routeHudState.points.size >= 2) {
-                        DashboardRouteMap(
-                            routeHudState = routeHudState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            DashboardStatCard(
-                                label = "Remaining Distance",
-                                value = "${oneDecimal(routeHudState.remainingMiles)} mi",
-                                modifier = Modifier.weight(1f)
+                Surface(
+                    modifier = Modifier
+                        .weight(1.15f)
+                        .height(285.dp),
+                    color = Color(0xFF09090B),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        if (routeHudState != null && routeHudState.points.size >= 2) {
+                            DashboardRouteMap(
+                                routeHudState = routeHudState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
                             )
-                            DashboardStatCard(
-                                label = "Progress",
-                                value = formatPercent(routeHudState.progressPercent),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "No route loaded",
-                                color = Color.White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Select or import a GPX route to see the live course map.",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 16.sp,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                            Button(
-                                onClick = onAddRoute,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                modifier = Modifier.padding(top = 18.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                DashboardStatCard(
+                                    label = "Remaining",
+                                    value = "${oneDecimal(routeHudState.remainingMiles)} mi",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                DashboardStatCard(
+                                    label = "Progress",
+                                    value = formatPercent(routeHudState.progressPercent),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Select / Add Route", color = Color.Black, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "No route loaded",
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Select or import a GPX route to see the live course map.",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                                Button(
+                                    onClick = onAddRoute,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                    modifier = Modifier.padding(top = 18.dp)
+                                ) {
+                                    Text("Select / Add Route", color = Color.Black, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-private fun RideElevationPanel(
-    routeHudState: com.spop.poverlay.route.RouteHudState?,
-    bikePlusControlsEnabled: Boolean
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF18181B),
-        shape = MaterialTheme.shapes.large
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Elevation Profile",
-                        color = Color.White,
-                        fontSize = 21.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Upcoming terrain and resistance simulation",
-                        color = Color(0xFF71717A),
-                        fontSize = 14.sp
-                    )
-                }
                 Surface(
-                    color = if (bikePlusControlsEnabled) Color(0xFF064E3B) else Color(0xFF27272A),
-                    shape = MaterialTheme.shapes.medium
+                    modifier = Modifier
+                        .weight(0.85f)
+                        .height(285.dp),
+                    color = Color(0xFF09090B),
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Text(
-                        text = if (bikePlusControlsEnabled) "Auto Resistance Ready" else "Auto Resistance Off",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        color = if (bikePlusControlsEnabled) Color(0xFFA7F3D0) else Color(0xFFA1A1AA),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                color = Color(0xFF09090B),
-                shape = MaterialTheme.shapes.large
-            ) {
-                if (routeHudState != null && routeHudState.points.size >= 2) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        DashboardElevationProfile(
-                            routeHudState = routeHudState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            DashboardStatCard(
-                                label = "Current",
-                                value = formatElevation(routeHudState.elevationMeters),
-                                modifier = Modifier.weight(1f)
-                            )
-                            DashboardStatCard(
-                                label = "Grade",
-                                value = formatPercent(routeHudState.gradePercent),
-                                modifier = Modifier.weight(1f)
-                            )
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Elevation",
+                                    color = Color.White,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (bikePlusControlsEnabled) "Auto ready" else "Auto off",
+                                    color = if (bikePlusControlsEnabled) Color(0xFFA7F3D0) else Color(0xFFA1A1AA),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Elevation appears when a route is active",
-                            color = Color(0xFFA1A1AA),
-                            fontSize = 16.sp
-                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        if (routeHudState != null && routeHudState.points.size >= 2) {
+                            DashboardElevationProfile(
+                                routeHudState = routeHudState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                DashboardStatCard(
+                                    label = "Elevation",
+                                    value = formatElevation(routeHudState.elevationMeters),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                DashboardStatCard(
+                                    label = "Grade",
+                                    value = formatPercent(routeHudState.gradePercent),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Elevation appears when a route is active",
+                                    color = Color(0xFFA1A1AA),
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1661,101 +1628,6 @@ private fun RideStatTile(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RideResistancePanel(
-    currentResistance: Int,
-    gradePercent: Double?,
-    bikePlusControlsEnabled: Boolean,
-    hasActiveRoute: Boolean
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF18181B),
-        shape = MaterialTheme.shapes.large
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Resistance Control",
-                        color = Color.White,
-                        fontSize = 21.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Bike+ simulation system",
-                        color = Color(0xFF71717A),
-                        fontSize = 14.sp
-                    )
-                }
-                Surface(
-                    color = if (bikePlusControlsEnabled) Color(0xFF064E3B) else Color(0xFF27272A),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text(
-                        text = if (bikePlusControlsEnabled) "ENABLED" else "OFF",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        color = if (bikePlusControlsEnabled) Color(0xFFA7F3D0) else Color(0xFFA1A1AA),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF09090B),
-                shape = MaterialTheme.shapes.large
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Current Resistance",
-                            color = Color(0xFF71717A),
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = "$currentResistance%",
-                            color = Color.White,
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = if (bikePlusControlsEnabled && hasActiveRoute) "Simulation" else "Grade",
-                            color = Color(0xFF71717A),
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = if (bikePlusControlsEnabled && hasActiveRoute) {
-                                "Auto"
-                            } else {
-                                gradePercent?.let { formatPercent(it) } ?: "--"
-                            },
-                            color = Color(0xFF34D399),
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
                 }
             }
         }
