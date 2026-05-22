@@ -2219,54 +2219,64 @@ private fun AddRoutePage(
     onImportDropFolder: () -> Unit
 ) {
     val url = routeUploadPortalState.url
-    LazyColumn(
+    Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Add Route",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Upload a GPX from your phone or computer",
+                    color = Color(0xFFA1A1AA),
+                    fontSize = 14.sp
+                )
+            }
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
             ) {
-                Column {
-                    Text(
-                        text = "Add Route",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Upload a GPX from your phone or computer",
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
-                    )
-                }
-                Button(
-                    onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                ) {
-                    Text("Back")
-                }
+                Text("Back")
             }
         }
 
-        item {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1.05f)
+                    .height(430.dp),
                 color = Color(0xFF18181B),
                 shape = MaterialTheme.shapes.large
             ) {
                 Column(
-                    modifier = Modifier.padding(22.dp),
+                    modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (url == null) {
-                        Text(
-                            text = routeUploadPortalState.message ?: "Starting upload portal...",
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = routeUploadPortalState.message ?: "Starting upload portal...",
+                                color = Color.White,
+                                fontSize = 18.sp
+                            )
+                        }
                     } else {
                         Surface(
                             color = Color.White,
@@ -2276,25 +2286,25 @@ private fun AddRoutePage(
                                 bitmap = RouteUploadQrCode.bitmap(url).asImageBitmap(),
                                 contentDescription = "Route upload QR code",
                                 modifier = Modifier
-                                    .padding(14.dp)
-                                    .requiredSize(260.dp)
+                                    .padding(12.dp)
+                                    .requiredSize(250.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = "Scan this QR code from a device on the same Wi-Fi.",
                             color = Color.White,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = url,
                             color = Color(0xFF34D399),
-                            fontSize = 16.sp
+                            fontSize = 14.sp
                         )
                         routeUploadPortalState.message?.let {
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = it,
                                 color = Color(0xFFA1A1AA),
@@ -2304,54 +2314,63 @@ private fun AddRoutePage(
                     }
                 }
             }
-        }
 
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF18181B),
-                shape = MaterialTheme.shapes.medium
+            Column(
+                modifier = Modifier
+                    .weight(0.95f)
+                    .height(430.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Finding GPX routes",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Trusted sources include Ride with GPS, Strava exports, Komoot, and Garmin Connect. Export the route as GPX, then upload it here.",
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
-                    )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = "Finding GPX routes",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Trusted sources include Ride with GPS, Strava exports, Komoot, and Garmin Connect. Export the route as GPX, then upload it here.",
+                            color = Color(0xFFA1A1AA),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
-            }
-        }
 
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF18181B),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Fallback",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "If the phone cannot reach the bike, you can still push GPX files to the route_imports folder and import them here.",
-                        color = Color(0xFFA1A1AA),
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = onImportDropFolder,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
-                    ) {
-                        Text("Import Drop Folder")
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    color = Color(0xFF18181B),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = "Fallback",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "If the phone cannot reach the bike, push GPX files to the route_imports folder and import them here.",
+                            color = Color(0xFFA1A1AA),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onImportDropFolder,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27272A))
+                        ) {
+                            Text("Import Drop Folder")
+                        }
                     }
                 }
             }
