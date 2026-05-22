@@ -6,6 +6,27 @@ Switchback is an Android overlay app for the Peloton Bike+. It adds a real-time 
 
 ---
 
+## Screenshots
+
+| Ride Dashboard | Routes |
+|---|---|
+| ![Ride Dashboard](docs/screenshots/Ride%20-%20Home%20Screen.png) | ![Routes](docs/screenshots/Routes%20Screen.png) |
+
+| History | Settings |
+|---|---|
+| ![History](docs/screenshots/History%20Screen.png) | ![Settings](docs/screenshots/Settings%20Screen.png) |
+
+**HUD overlay — full stats bar with route map and elevation profile**
+![HUD Full](docs/screenshots/HUD%20Full%20-%20Elevation%20Map%20Full.png)
+
+**HUD minimized — compact bar with route map panel**
+![HUD Minimized Map](docs/screenshots/HUD%20Minimized%20-%20Map%20Full.png)
+
+**HUD minimized — compact bar only**
+![HUD Minimized](docs/screenshots/HUD%20Minimized%20-%20Map%20Minimized.png)
+
+---
+
 ## Contents
 
 - [Hardware requirements](#hardware-requirements)
