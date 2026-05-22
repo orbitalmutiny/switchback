@@ -93,6 +93,9 @@ class OverlaySensorViewModel(
     private var latestRouteGradePercent = 0.0
     private var savedRouteStartPositionMeters = 0.0
     private var lastRouteProgressSaveAtMs = 0L
+    private var lastRideActiveState: Boolean? = null
+    private var lastNoActiveRouteLogAtMs = 0L
+    private var lastRouteProgressLogAtMs = 0L
 
 
     fun onDismissErrorPressed() {
@@ -254,6 +257,13 @@ class OverlaySensorViewModel(
                 val power = latestPower.value
                 val cadence = latestCadence.value
                 val isRideActive = power > 0f || cadence > 0f
+                if (lastRideActiveState != isRideActive) {
+                    lastRideActiveState = isRideActive
+                    Log.i(
+                        RouteResistanceLogTag,
+                        "Ride active changed: active=$isRideActive power=$power cadence=$cadence activeRoute=${activeRoute?.name}"
+                    )
+                }
                 if (isRideActive) {
                     mutableRideElapsedSeconds.value += 1L
                     mutableRideDistanceMiles.value += latestSpeedMph.value / 3600f
@@ -267,9 +277,14 @@ class OverlaySensorViewModel(
     private fun setupRouteProgress() {
         viewModelScope.launch(Dispatchers.IO) {
             configurationRepository.activeRouteId.collect { routeId ->
+                Log.i(
+                    RouteResistanceLogTag,
+                    "Active route id observed: id=$routeId routeStoreAvailable=${routeStore != null}"
+                )
                 val route = routeId?.let { routeStore?.loadRoute(it) }
                 activeRoute = route
                 if (route == null) {
+                    Log.i(RouteResistanceLogTag, "Active route cleared or missing: id=$routeId")
                     routeRideRuntime.reset()
                     mutableRouteHudState.value = null
                     routeResistanceBaseline = null
@@ -294,6 +309,10 @@ class OverlaySensorViewModel(
                     lastRouteResistanceWriteAtMs = 0L
                     routeAutomationSuspendedUntilMs = 0L
                     latestRouteGradePercent = 0.0
+                    Log.i(
+                        RouteResistanceLogTag,
+                        "Active route loaded: id=${route.id} name=${route.name} savedPositionMeters=$savedRouteStartPositionMeters distanceMeters=${route.metadata.distanceMeters} baseline=$routeResistanceBaseline simulation=${configurationRepository.routeResistanceSimulationEnabled.value}"
+                    )
                     updateActiveRouteProgress(isRideActive = false)
                 }
             }
@@ -301,14 +320,37 @@ class OverlaySensorViewModel(
     }
 
     private fun updateActiveRouteProgress(isRideActive: Boolean) {
-        val route = activeRoute ?: return
+        val route = activeRoute
+        if (route == null) {
+            val now = SystemClock.elapsedRealtime()
+            if (lastNoActiveRouteLogAtMs == 0L || now - lastNoActiveRouteLogAtMs >= 10_000L) {
+                lastNoActiveRouteLogAtMs = now
+                Log.i(
+                    RouteResistanceLogTag,
+                    "Route progress skipped: no active route rideActive=$isRideActive"
+                )
+            }
+            return
+        }
         val routeDistanceMiles = (mutableRideDistanceMiles.value - routeStartedAtDistanceMiles).coerceAtLeast(0f)
         val progress = routeRideRuntime.updateDistanceMeters(
             savedRouteStartPositionMeters + (routeDistanceMiles.toDouble() * MetersPerMile)
-        ) ?: return
+        )
+        if (progress == null) {
+            Log.i(RouteResistanceLogTag, "Route progress skipped: runtime returned no progress route=${route.name}")
+            return
+        }
         val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
         val smoothedGrade = RouteGradeSmoother(preset.lookAheadMeters).gradePercent(route, progress.positionMeters)
         latestRouteGradePercent = smoothedGrade
+        val now = SystemClock.elapsedRealtime()
+        if (lastRouteProgressLogAtMs == 0L || now - lastRouteProgressLogAtMs >= 5_000L) {
+            lastRouteProgressLogAtMs = now
+            Log.i(
+                RouteResistanceLogTag,
+                "Route progress: route=${route.name} rideActive=$isRideActive positionMeters=${progress.positionMeters} rawGrade=${progress.gradePercent} smoothedGrade=$smoothedGrade simulation=${configurationRepository.routeResistanceSimulationEnabled.value}"
+            )
+        }
         mutableRouteHudState.value = RouteHudState(
             routeName = route.name,
             progressPercent = progress.progressPercent,
