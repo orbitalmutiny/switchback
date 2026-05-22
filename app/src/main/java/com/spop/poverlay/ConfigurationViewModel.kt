@@ -153,6 +153,14 @@ class ConfigurationViewModel(
 
     fun onRouteResistanceSimulationEnabledClicked(isChecked: Boolean) {
         configurationRepository.setRouteResistanceSimulationEnabled(isChecked)
+        if (isChecked) {
+            val activeRoute = configurationRepository.activeRouteId.value?.let { id ->
+                importedRoutes.value.firstOrNull { it.id == id }
+            }
+            if (activeRoute != null && ensureOverlayServiceRunningForRouteResistance()) {
+                infoPopup.value = "Route resistance ready for ${activeRoute.name}"
+            }
+        }
     }
 
     fun onRouteResistancePresetClicked(presetId: String) {
@@ -409,10 +417,11 @@ class ConfigurationViewModel(
         configurationRepository.setActiveRouteId(route.id)
         configurationRepository.setActiveRoutePositionMeters(savedPosition)
         routeRideState.value = routeRideRuntime.state
+        val startedRouteAutomation = ensureOverlayServiceRunningForRouteResistance()
         infoPopup.value = if (savedPosition > 0.0) {
-            "Resumed ${route.name}"
+            "Resumed ${route.name}${routeAutomationSuffix(startedRouteAutomation)}"
         } else {
-            "Started ${route.name}"
+            "Started ${route.name}${routeAutomationSuffix(startedRouteAutomation)}"
         }
     }
 
@@ -421,7 +430,8 @@ class ConfigurationViewModel(
         configurationRepository.setActiveRouteId(route.id)
         configurationRepository.setActiveRoutePositionMeters(0.0)
         routeRideState.value = routeRideRuntime.state
-        infoPopup.value = "Started ${route.name}"
+        val startedRouteAutomation = ensureOverlayServiceRunningForRouteResistance()
+        infoPopup.value = "Started ${route.name}${routeAutomationSuffix(startedRouteAutomation)}"
     }
 
     fun onResetRouteClicked() {
@@ -462,6 +472,24 @@ class ConfigurationViewModel(
         )
         routeRideState.value = routeRideRuntime.state
     }
+
+    private fun ensureOverlayServiceRunningForRouteResistance(): Boolean {
+        if (!IsBikePlus || !configurationRepository.routeResistanceSimulationEnabled.value) {
+            return false
+        }
+        if (OverlayService.isRunning.value) {
+            return false
+        }
+        Timber.i("Starting overlay service for route resistance")
+        ContextCompat.startForegroundService(
+            getApplication(),
+            Intent(getApplication(), OverlayService::class.java)
+        )
+        return true
+    }
+
+    private fun routeAutomationSuffix(startedRouteAutomation: Boolean): String =
+        if (startedRouteAutomation) " · route resistance ready" else ""
 
     private fun setupLiveRideDashboard() {
         viewModelScope.launch(Dispatchers.IO) {
