@@ -44,7 +44,7 @@ Switchback is built for the Peloton DIY and community hardware space. If you are
 From the `grupetto` folder:
 
 ```powershell
-cd "C:\Peloton Project\grupetto"
+cd "C:\Peloton Project\switchback"
 .\gradlew.bat assembleDebug
 ```
 
