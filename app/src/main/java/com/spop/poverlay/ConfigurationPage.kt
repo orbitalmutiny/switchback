@@ -1006,9 +1006,6 @@ private fun SettingsPage(
         // ── App / System ───────────────────────────────────────────────────
         item { SettingsSectionTitle("App / System") }
         item {
-            ReleaseStatus(latestRelease, onClickedRelease)
-        }
-        item {
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
