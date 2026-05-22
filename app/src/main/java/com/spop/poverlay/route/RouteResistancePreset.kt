@@ -16,7 +16,7 @@ enum class RouteResistancePreset(
         baselineResistanceFloor = 15,
         lookAheadMeters = 220.0,
         uphillResistancePerGrade = 1.0,
-        downhillResistancePerGrade = 0.5,
+        downhillResistancePerGrade = 1.0,
         maxStepPerWrite = 1,
         minWriteIntervalMs = 8_000L
     ),
@@ -26,7 +26,7 @@ enum class RouteResistancePreset(
         baselineResistanceFloor = 20,
         lookAheadMeters = 180.0,
         uphillResistancePerGrade = 1.5,
-        downhillResistancePerGrade = 0.75,
+        downhillResistancePerGrade = 2.0,
         maxStepPerWrite = 2,
         minWriteIntervalMs = 6_000L
     ),
@@ -36,7 +36,7 @@ enum class RouteResistancePreset(
         baselineResistanceFloor = 25,
         lookAheadMeters = 140.0,
         uphillResistancePerGrade = 2.0,
-        downhillResistancePerGrade = 1.0,
+        downhillResistancePerGrade = 2.5,
         maxStepPerWrite = 10,
         minWriteIntervalMs = 4_000L
     );

@@ -3,7 +3,9 @@ package com.spop.poverlay
 import android.app.Application
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -30,6 +32,7 @@ import com.spop.poverlay.sensor.interfaces.DummySensorInterface
 import com.spop.poverlay.sensor.interfaces.PelotonBikePlusSensorInterface
 import com.spop.poverlay.sensor.interfaces.PelotonBikeSensorInterfaceV1New
 import com.spop.poverlay.sensor.interfaces.SensorInterface
+import com.spop.poverlay.sensor.v2.BikePlusService
 import com.spop.poverlay.util.IsBikePlus
 import com.spop.poverlay.util.IsRunningOnPeloton
 import com.spop.poverlay.util.calculateSpeedFromPelotonV1Power
@@ -39,6 +42,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+
+private const val RouteResistanceLogTag = "SwitchbackRouteResistance"
 
 class ConfigurationViewModel(
     application: Application,
@@ -73,6 +78,13 @@ class ConfigurationViewModel(
     private val routeImportDir: File
         get() = File(getApplication<Application>().getExternalFilesDir(null), "route_imports")
     private val routeRideRuntime = RouteRideRuntime()
+    private var dashboardBikePlusService: BikePlusService? = null
+    private var dashboardRouteResistanceRouteId: String? = null
+    private var dashboardRouteResistanceBaseline: Int? = null
+    private var dashboardLastRouteResistanceRequest: Int? = null
+    private var dashboardRouteResistanceWriteAtMs = 0L
+    private var dashboardRouteResistanceWriteInFlight = false
+    private var dashboardResistanceTelemetrySeen = false
     private val routeUploadServer: RouteUploadServer = RouteUploadServer(
         routeStore = routeStore,
         onImported = {
@@ -153,6 +165,7 @@ class ConfigurationViewModel(
 
     fun onRouteResistanceSimulationEnabledClicked(isChecked: Boolean) {
         configurationRepository.setRouteResistanceSimulationEnabled(isChecked)
+        if (!isChecked) resetDashboardRouteResistanceAutomation()
     }
 
     fun onRouteResistancePresetClicked(presetId: String) {
@@ -421,6 +434,7 @@ class ConfigurationViewModel(
         configurationRepository.setActiveRouteId(route.id)
         configurationRepository.setActiveRoutePositionMeters(0.0)
         routeRideState.value = routeRideRuntime.state
+        resetDashboardRouteResistanceAutomation()
         infoPopup.value = "Started ${route.name}"
     }
 
@@ -476,6 +490,7 @@ class ConfigurationViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             dashboardSensorInterface.resistance.collect { value ->
+                dashboardResistanceTelemetrySeen = true
                 liveRideDashboardState.value = liveRideDashboardState.value.copy(resistance = value.toInt())
             }
         }
@@ -493,6 +508,11 @@ class ConfigurationViewModel(
                 val nextElapsed = if (isActive) current.elapsedSeconds + 1L else current.elapsedSeconds
                 val nextWork = if (isActive) current.workKilojoules + current.powerWatts / 1000f else current.workKilojoules
                 val routeHudState = dashboardRouteHudState(nextDistance)
+                maybeApplyDashboardRouteResistance(
+                    routeHudState = routeHudState,
+                    isRideActive = isActive,
+                    currentResistance = current.resistance
+                )
                 liveRideDashboardState.value = current.copy(
                     speedMph = speedMph,
                     distanceMiles = nextDistance,
@@ -510,6 +530,102 @@ class ConfigurationViewModel(
                 )
             }
         }
+    }
+
+    private fun maybeApplyDashboardRouteResistance(
+        routeHudState: RouteHudState?,
+        isRideActive: Boolean,
+        currentResistance: Int
+    ) {
+        val routeId = configurationRepository.activeRouteId.value
+        if (routeHudState == null || routeId == null) {
+            resetDashboardRouteResistanceAutomation()
+            return
+        }
+        if (!IsBikePlus || OverlayService.isRunning.value) {
+            return
+        }
+        if (dashboardRouteResistanceRouteId != routeId) {
+            dashboardRouteResistanceRouteId = routeId
+            dashboardRouteResistanceBaseline = null
+            dashboardLastRouteResistanceRequest = null
+            dashboardRouteResistanceWriteAtMs = 0L
+        }
+        if (!isRideActive) {
+            Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: ride inactive")
+            return
+        }
+        if (!configurationRepository.routeResistanceSimulationEnabled.value) {
+            Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: simulation disabled")
+            return
+        }
+        if (!dashboardResistanceTelemetrySeen) {
+            Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: no resistance telemetry")
+            return
+        }
+        val baseline = dashboardRouteResistanceBaseline ?: currentResistance.also {
+            dashboardRouteResistanceBaseline = it
+            dashboardLastRouteResistanceRequest = it
+        }
+        val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
+        val targetResistance = GradeResistanceMapper(preset).targetResistance(
+            baselineResistance = baseline,
+            gradePercent = routeHudState.gradePercent,
+            previousRequestedResistance = dashboardLastRouteResistanceRequest
+        )
+        if (targetResistance == dashboardLastRouteResistanceRequest || dashboardRouteResistanceWriteInFlight) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Dashboard route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=${routeHudState.gradePercent} lastRequested=$dashboardLastRouteResistanceRequest target=$targetResistance inFlight=$dashboardRouteResistanceWriteInFlight"
+            )
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (dashboardRouteResistanceWriteAtMs != 0L &&
+            now - dashboardRouteResistanceWriteAtMs < preset.minWriteIntervalMs
+        ) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Dashboard route resistance skipped: rate limited elapsedMs=${now - dashboardRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$targetResistance"
+            )
+            return
+        }
+
+        dashboardRouteResistanceWriteInFlight = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val bikePlusService = dashboardBikePlusService
+                ?: (dashboardSensorInterface as? PelotonBikePlusSensorInterface)
+                    ?.getBikePlusService(configurationRepository)
+                    ?.also { dashboardBikePlusService = it }
+            if (bikePlusService == null) {
+                Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: control unavailable")
+                dashboardRouteResistanceWriteInFlight = false
+                return@launch
+            }
+            Log.i(
+                RouteResistanceLogTag,
+                "Dashboard route resistance target: preset=${preset.id} baseline=$baseline grade=${routeHudState.gradePercent} target=$targetResistance"
+            )
+            bikePlusService
+                .setResistance(targetResistance)
+                .onSuccess {
+                    dashboardLastRouteResistanceRequest = it
+                    dashboardRouteResistanceWriteAtMs = SystemClock.elapsedRealtime()
+                    Log.i(RouteResistanceLogTag, "Dashboard route resistance sent: resistance=$it")
+                }
+                .onFailure {
+                    Log.e(RouteResistanceLogTag, "Dashboard route resistance write failed", it)
+                }
+            dashboardRouteResistanceWriteInFlight = false
+        }
+    }
+
+    private fun resetDashboardRouteResistanceAutomation() {
+        dashboardRouteResistanceRouteId = null
+        dashboardRouteResistanceBaseline = null
+        dashboardLastRouteResistanceRequest = null
+        dashboardRouteResistanceWriteAtMs = 0L
+        dashboardRouteResistanceWriteInFlight = false
     }
 
     private fun dashboardRouteHudState(distanceMiles: Float): RouteHudState? {

@@ -64,6 +64,7 @@ import kotlin.math.roundToInt
 class OverlayService : LifecycleEnabledService() {
     companion object {
         private const val RideRecordingLogTag = "GrupettoRideRecording"
+        private const val RouteResistanceLogTag = "SwitchbackRouteResistance"
 
         private const val DefaultOverlayFlags = (LayoutParams.FLAG_NOT_TOUCH_MODAL
                 or LayoutParams.FLAG_NOT_FOCUSABLE
@@ -95,6 +96,7 @@ class OverlayService : LifecycleEnabledService() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.i(RouteResistanceLogTag, "OverlayService created")
         mutableIsRunning.value = true
 
         val notificationManager = NotificationManagerCompat.from(this)
@@ -109,12 +111,14 @@ class OverlayService : LifecycleEnabledService() {
 
     override fun onDestroy() {
         mutableIsRunning.value = false
+        Log.i(RouteResistanceLogTag, "OverlayService destroyed")
         super.onDestroy()
     }
 
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.i("overlay service received intent")
+        Log.i(RouteResistanceLogTag, "OverlayService received intent")
         return START_STICKY
     }
 
@@ -152,6 +156,10 @@ class OverlayService : LifecycleEnabledService() {
         } else {
             EmulatorSensorInterface
         }
+        Log.i(
+            RouteResistanceLogTag,
+            "OverlayService sensor ready: isPeloton=$IsRunningOnPeloton isBikePlus=$IsBikePlus bikePlusControlAvailable=${bikePlusSensorInterface != null}"
+        )
 
         val heartRateMonitor = BluetoothHeartRateMonitor(applicationContext).also {
             lifecycle.addObserver(object : DefaultLifecycleObserver {
