@@ -52,7 +52,12 @@ class GradeResistanceMapper(
             .coerceIn(previous - maxStep, previous + maxStep)
             .coerceIn(MinResistance, MaxResistance)
         return if (isDownhill) {
-            rateLimitedTarget.coerceAtMost(previous)
+            val result = rateLimitedTarget.coerceAtMost(previous)
+            if (previous >= preset.baselineResistanceFloor) {
+                result.coerceAtLeast(preset.baselineResistanceFloor)
+            } else {
+                result
+            }
         } else {
             rateLimitedTarget
         }
