@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -161,6 +162,11 @@ fun Overlay(
                 color = BackgroundColorDefault,
                 shape = backgroundShape,
             )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { sensorViewModel.onOverlayPressed() }
+                )
+            }
             .pointerInput(Unit) {
                 detectDragGestures(onDrag = { change, offset ->
                     change.consume()

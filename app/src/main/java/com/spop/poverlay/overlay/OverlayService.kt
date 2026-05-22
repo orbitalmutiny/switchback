@@ -234,7 +234,7 @@ class OverlayService : LifecycleEnabledService() {
         ).apply {
             gravity = Gravity.TOP or Gravity.END
             x = 0
-            y = dpToPx(130)
+            y = 0
             disableAnimations()
         }
 
