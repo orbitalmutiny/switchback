@@ -27,7 +27,11 @@ import com.spop.poverlay.route.RouteRideState
 import com.spop.poverlay.route.RouteStore
 import com.spop.poverlay.route.RouteUploadPortalState
 import com.spop.poverlay.route.RouteUploadServer
+import com.spop.poverlay.sensor.hr.BluetoothHeartRateMonitor
 import com.spop.poverlay.sensor.hr.HeartRatePermissions
+import com.spop.poverlay.sensor.hr.WorkoutServicesHeartRateMonitor
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import com.spop.poverlay.sensor.interfaces.DummySensorInterface
 import com.spop.poverlay.sensor.interfaces.PelotonBikePlusSensorInterface
 import com.spop.poverlay.sensor.interfaces.PelotonBikeSensorInterfaceV1New
@@ -494,6 +498,34 @@ class ConfigurationViewModel(
                 liveRideDashboardState.value = liveRideDashboardState.value.copy(resistance = value.toInt())
             }
         }
+        viewModelScope.launch(Dispatchers.IO) {
+            configurationRepository.heartRateMonitorEnabled.collectLatest { isEnabled ->
+                if (!isEnabled) {
+                    liveRideDashboardState.value = liveRideDashboardState.value.copy(heartRateBpm = null)
+                    return@collectLatest
+                }
+                val nativeMonitor = if (IsRunningOnPeloton) {
+                    WorkoutServicesHeartRateMonitor(getApplication()).also { it.start() }
+                } else null
+                val bleMonitor = BluetoothHeartRateMonitor(getApplication()).also { it.start() }
+                try {
+                    val hrFlow = if (nativeMonitor != null) {
+                        combine(nativeMonitor.heartRateBpm, bleMonitor.heartRateBpm) { native, ble ->
+                            native ?: ble
+                        }
+                    } else {
+                        bleMonitor.heartRateBpm
+                    }
+                    hrFlow.collect { bpm ->
+                        liveRideDashboardState.value = liveRideDashboardState.value.copy(heartRateBpm = bpm)
+                    }
+                } finally {
+                    nativeMonitor?.close()
+                    bleMonitor.close()
+                }
+            }
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 kotlinx.coroutines.delay(1000L)

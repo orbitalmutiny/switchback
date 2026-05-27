@@ -10,6 +10,7 @@ data class LiveRideDashboardState(
     val distanceMiles: Float = 0f,
     val elapsedSeconds: Long = 0L,
     val workKilojoules: Float = 0f,
+    val heartRateBpm: Int? = null,
     val routeHudState: RouteHudState? = null,
     val visualResistanceCue: String? = null
 )

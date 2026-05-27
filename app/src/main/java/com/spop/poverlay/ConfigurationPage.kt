@@ -1671,7 +1671,7 @@ private fun LiveDashboardPage(
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                RideStatTile("Heart Rate", "--", "BPM", Modifier.weight(1f))
+                                RideStatTile("Heart Rate", state.heartRateBpm?.toString() ?: "--", "BPM", Modifier.weight(1f))
                                 RideStatTile("Speed", oneDecimal(state.speedMph), "MPH", Modifier.weight(1f))
                             }
                             Spacer(modifier = Modifier.height(10.dp))

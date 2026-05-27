@@ -46,6 +46,7 @@ import com.spop.poverlay.util.disableAnimations
 import com.spop.poverlay.overlay.composables.ResistanceControlOverlay
 import com.spop.poverlay.overlay.composables.RouteMapOverlay
 import com.spop.poverlay.sensor.hr.BluetoothHeartRateMonitor
+import com.spop.poverlay.sensor.hr.WorkoutServicesHeartRateMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -169,6 +170,22 @@ class OverlayService : LifecycleEnabledService() {
             })
         }
 
+        val nativeHeartRateMonitor = if (IsRunningOnPeloton) {
+            WorkoutServicesHeartRateMonitor(applicationContext).also {
+                lifecycle.addObserver(object : DefaultLifecycleObserver {
+                    override fun onDestroy(owner: LifecycleOwner) {
+                        it.close()
+                    }
+                })
+            }
+        } else {
+            null
+        }
+
+        // Combined HR: native (Peloton WorkoutServices) preferred, BLE fallback.
+        // Native emits null until callback registration is confirmed; BLE carries values until then.
+        val combinedHeartRateBpm = MutableStateFlow<Int?>(null)
+
         val sensorViewModel = OverlaySensorViewModel(
             application,
             sensorInterface,
@@ -178,7 +195,7 @@ class OverlayService : LifecycleEnabledService() {
                 { it.getBikePlusService(configurationRepository) }
             },
             routeStore,
-            heartRateMonitor.heartRateBpm
+            combinedHeartRateBpm
         )
 
         val timerViewModel = OverlayTimerViewModel(
@@ -429,10 +446,24 @@ class OverlayService : LifecycleEnabledService() {
             configurationRepository.heartRateMonitorEnabled.collectLatest { isEnabled ->
                 Log.i("SwitchbackHeartRate", "Heart rate setting changed: enabled=$isEnabled")
                 if (isEnabled) {
+                    nativeHeartRateMonitor?.start()
                     heartRateMonitor.start()
                 } else {
+                    nativeHeartRateMonitor?.stop()
                     heartRateMonitor.stop()
                 }
+            }
+        }
+
+        lifecycleScope.launchWhenResumed {
+            if (nativeHeartRateMonitor != null) {
+                combine(
+                    nativeHeartRateMonitor.heartRateBpm,
+                    heartRateMonitor.heartRateBpm
+                ) { native, ble -> native ?: ble }
+                    .collect { combinedHeartRateBpm.value = it }
+            } else {
+                heartRateMonitor.heartRateBpm.collect { combinedHeartRateBpm.value = it }
             }
         }
 
@@ -471,7 +502,7 @@ class OverlayService : LifecycleEnabledService() {
                         rideSessionRuntime.onTelemetrySnapshot(
                             snapshot = snapshot,
                             speedMph = speedMph,
-                            heartRateBpm = heartRateMonitor.heartRateBpm.value,
+                            heartRateBpm = combinedHeartRateBpm.value,
                             routePositionMetersForDistance = activeRoute?.let {
                                 { distanceMiles ->
                                     routeRideRuntime
