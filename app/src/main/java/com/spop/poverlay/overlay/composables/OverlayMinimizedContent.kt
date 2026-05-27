@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,7 @@ fun OverlayMinimizedContent(
     speedLabel: String,
     distanceLabel: String,
     resistanceLabel: String,
+    resistanceGuidanceSuffix: String?,
     heartRateLabel: String,
     caloriesLabel: String,
     showPower: Boolean,
@@ -157,8 +159,8 @@ fun OverlayMinimizedContent(
             if (showResistance) {
                 Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
                 OverlayTimerField(
-                    modifier = Modifier.width(58.dp),
-                    timerLabel = resistanceLabel,
+                    modifier = Modifier.width(if (resistanceGuidanceSuffix.isNullOrBlank()) 58.dp else 90.dp),
+                    timerLabel = resistanceGuidanceSuffix?.let { "$resistanceLabel$it" } ?: resistanceLabel,
                     iconDrawable = R.drawable.ic_resistance
                 )
             }
@@ -225,6 +227,9 @@ private fun OverlayTimerField(
             color = Color.White,
             fontSize = 19.sp,
             textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             modifier = Modifier
                 .fillMaxWidth()
         )

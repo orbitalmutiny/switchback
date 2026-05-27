@@ -578,7 +578,11 @@ class ConfigurationViewModel(
                 // Guard: do not capture baseline until real resistance telemetry has arrived.
                 // current.resistance defaults to 0 before any telemetry; locking in 0 would
                 // produce bogus guidance targets for the entire ride.
-                val guidanceState = if (!IsBikePlus && routeHudState != null && dashboardResistanceTelemetrySeen) {
+                val suppressGuidanceForBikePlusAuto =
+                    IsBikePlus &&
+                            configurationRepository.bikePlusResistanceControlEnabled.value &&
+                            configurationRepository.routeResistanceSimulationEnabled.value
+                val guidanceState = if (routeHudState != null && dashboardResistanceTelemetrySeen) {
                     val baseline = dashboardGuidanceBaseline
                         ?: current.resistance.also { dashboardGuidanceBaseline = it }
                     val preset = RouteResistancePreset.fromId(
@@ -596,7 +600,7 @@ class ConfigurationViewModel(
                         ),
                         warningSeconds = configurationRepository.manualResistanceWarningSeconds.value,
                         enabled = configurationRepository.manualResistanceGuidanceEnabled.value,
-                        isBikePlus = IsBikePlus,
+                        isBikePlus = suppressGuidanceForBikePlusAuto,
                         timestampMs = android.os.SystemClock.elapsedRealtime(),
                         preset = preset
                     )

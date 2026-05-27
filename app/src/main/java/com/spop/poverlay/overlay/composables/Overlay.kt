@@ -27,6 +27,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spop.poverlay.overlay.composables.OverlayMainContent
 import com.spop.poverlay.overlay.composables.OverlayMinimizedContent
+import com.spop.poverlay.route.ManualResistanceGuidanceState
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
 
@@ -143,6 +144,7 @@ fun Overlay(
             speedLabel = speed,
             distanceLabel = distance,
             resistanceLabel = resistance,
+            resistanceGuidanceSuffix = minimizedResistanceGuidanceSuffix(routeHudState?.guidanceState),
             heartRateLabel = heartRate,
             caloriesLabel = calories,
             showPower = showPower,
@@ -277,3 +279,15 @@ fun Overlay(
     }
 
 }
+
+private fun minimizedResistanceGuidanceSuffix(guidance: ManualResistanceGuidanceState?): String? =
+    when (guidance) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded ->
+            if (guidance.delta >= 0) "▲${guidance.delta}" else "▼${-guidance.delta}"
+        is ManualResistanceGuidanceState.Upcoming ->
+            if (guidance.delta >= 0) "▲${guidance.delta}!" else "▼${-guidance.delta}!"
+        is ManualResistanceGuidanceState.InRange -> "•"
+        is ManualResistanceGuidanceState.Stale ->
+            if (guidance.delta >= 0) "▲${guidance.delta}" else "▼${-guidance.delta}"
+        else -> null
+    }

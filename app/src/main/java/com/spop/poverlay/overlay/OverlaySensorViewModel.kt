@@ -356,7 +356,11 @@ class OverlaySensorViewModel(
             )
         }
         val currentResistance = latestResistance.value
-        val guidanceState = if (!IsBikePlus && currentResistance != null) {
+        val suppressGuidanceForBikePlusAuto =
+            IsBikePlus &&
+                    configurationRepository.bikePlusResistanceControlEnabled.value &&
+                    configurationRepository.routeResistanceSimulationEnabled.value
+        val guidanceState = if (currentResistance != null) {
             val baseline = routeResistanceBaseline ?: currentResistance
             val preset = RouteResistancePreset.fromId(
                 configurationRepository.routeResistancePreset.value
@@ -373,7 +377,7 @@ class OverlaySensorViewModel(
                 ),
                 warningSeconds = configurationRepository.manualResistanceWarningSeconds.value,
                 enabled = configurationRepository.manualResistanceGuidanceEnabled.value,
-                isBikePlus = IsBikePlus,
+                isBikePlus = suppressGuidanceForBikePlusAuto,
                 timestampMs = SystemClock.elapsedRealtime(),
                 preset = preset
             )

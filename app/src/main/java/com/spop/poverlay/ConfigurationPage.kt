@@ -1026,29 +1026,27 @@ private fun SettingsPage(
         }
 
         // ── Manual Resistance Guidance ──────────────────────────────────────
-        if (!IsBikePlus) {
-            item { SettingsSectionTitle("Manual Resistance Guidance") }
+        item { SettingsSectionTitle("Manual Resistance Guidance") }
+        item {
+            SettingsToggle(
+                title = "Enable resistance guidance",
+                subtitle = "Shows advisory targets on Ride page and HUD based on active route grade",
+                checked = manualResistanceGuidanceEnabled,
+                onCheckedChange = onManualResistanceGuidanceEnabledToggled
+            )
+        }
+        if (manualResistanceGuidanceEnabled) {
             item {
-                SettingsToggle(
-                    title = "Enable resistance guidance",
-                    subtitle = "Shows advisory targets on Ride page and HUD based on active route grade",
-                    checked = manualResistanceGuidanceEnabled,
-                    onCheckedChange = onManualResistanceGuidanceEnabledToggled
+                GuidanceTolerancePicker(
+                    selectedId = manualResistanceTolerance,
+                    onSelected = onManualResistanceToleranceSelected
                 )
             }
-            if (manualResistanceGuidanceEnabled) {
-                item {
-                    GuidanceTolerancePicker(
-                        selectedId = manualResistanceTolerance,
-                        onSelected = onManualResistanceToleranceSelected
-                    )
-                }
-                item {
-                    GuidanceWarningSetting(
-                        selectedSeconds = manualResistanceWarningSeconds,
-                        onSelected = onManualResistanceWarningSecondsSelected
-                    )
-                }
+            item {
+                GuidanceWarningSetting(
+                    selectedSeconds = manualResistanceWarningSeconds,
+                    onSelected = onManualResistanceWarningSecondsSelected
+                )
             }
         }
 
@@ -1750,7 +1748,7 @@ private fun LiveDashboardPage(
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             Row(
@@ -1759,7 +1757,7 @@ private fun LiveDashboardPage(
             ) {
                 Column(
                     modifier = Modifier.weight(2f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     RideRouteHeroPanel(
                         routeHudState = routeHudState,
@@ -1772,7 +1770,7 @@ private fun LiveDashboardPage(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -1816,23 +1814,23 @@ private fun LiveDashboardPage(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Power", state.powerWatts.roundToInt().toString(), "W", Modifier.weight(1f))
                                 RideStatTile("Cadence", state.cadenceRpm.roundToInt().toString(), "RPM", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Heart Rate", state.heartRateBpm?.toString() ?: "--", "BPM", Modifier.weight(1f))
                                 RideStatTile("Speed", oneDecimal(state.speedMph), "MPH", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Resistance", state.resistance.toString(), "%", Modifier.weight(1f))
                                 RideStatTile("Calories", state.workKilojoules.toInt().toString(), "KCAL", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Distance", oneDecimal(state.distanceMiles), "MI", Modifier.weight(1f))
                                 RideStatTile("Duration", DateUtils.formatElapsedTime(state.elapsedSeconds), "", Modifier.weight(1f))
@@ -1895,7 +1893,7 @@ private fun RideGuidanceCard(guidance: ManualResistanceGuidanceState) {
         shape = MaterialTheme.shapes.large
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -1903,15 +1901,15 @@ private fun RideGuidanceCard(guidance: ManualResistanceGuidanceState) {
                 Text(
                     text = title,
                     color = accentColor,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = body,
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = 1.dp)
                 )
             }
         }
@@ -1955,7 +1953,7 @@ private fun RideRouteHeroPanel(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1970,7 +1968,7 @@ private fun RideRouteHeroPanel(
                     Text(
                         text = routeHudState?.routeName ?: "No Active Route",
                         color = Color.White,
-                        fontSize = 32.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -1991,26 +1989,26 @@ private fun RideRouteHeroPanel(
                     shape = MaterialTheme.shapes.large
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
                             text = "Current Grade",
                             color = Color(0xFF71717A),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = routeHudState?.let { formatPercent(it.gradePercent) } ?: "--",
                             color = Color(0xFF34D399),
-                            fontSize = 40.sp,
+                            fontSize = 34.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2019,11 +2017,11 @@ private fun RideRouteHeroPanel(
                 Surface(
                     modifier = Modifier
                         .weight(1.15f)
-                        .height(285.dp),
+                        .height(252.dp),
                     color = Color(0xFF09090B),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         if (routeHudState != null && routeHudState.points.size >= 2) {
                             DashboardRouteMap(
                                 routeHudState = routeHudState,
@@ -2031,7 +2029,7 @@ private fun RideRouteHeroPanel(
                                     .fillMaxWidth()
                                     .weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DashboardStatCard(
                                     label = "Remaining",
@@ -2077,11 +2075,11 @@ private fun RideRouteHeroPanel(
                 Surface(
                     modifier = Modifier
                         .weight(0.85f)
-                        .height(285.dp),
+                        .height(252.dp),
                     color = Color(0xFF09090B),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2091,7 +2089,7 @@ private fun RideRouteHeroPanel(
                                 Text(
                                     text = "Elevation",
                                     color = Color.White,
-                                    fontSize = 19.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
@@ -2102,7 +2100,7 @@ private fun RideRouteHeroPanel(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (routeHudState != null && routeHudState.points.size >= 2) {
                             DashboardElevationProfile(
                                 routeHudState = routeHudState,
@@ -2110,7 +2108,7 @@ private fun RideRouteHeroPanel(
                                     .fillMaxWidth()
                                     .weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DashboardStatCard(
                                     label = "Elevation",
