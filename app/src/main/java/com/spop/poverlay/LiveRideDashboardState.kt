@@ -1,5 +1,6 @@
 package com.spop.poverlay
 
+import com.spop.poverlay.route.ManualResistanceGuidanceState
 import com.spop.poverlay.route.RouteHudState
 
 data class LiveRideDashboardState(
@@ -12,5 +13,8 @@ data class LiveRideDashboardState(
     val workKilojoules: Float = 0f,
     val heartRateBpm: Int? = null,
     val routeHudState: RouteHudState? = null,
-    val visualResistanceCue: String? = null
+    /** Kept for backward compatibility; set to null going forward. UI uses [guidanceState]. */
+    val visualResistanceCue: String? = null,
+    /** Typed manual resistance guidance state for non-Bike+ rides. Null when inactive. */
+    val guidanceState: ManualResistanceGuidanceState? = null
 )

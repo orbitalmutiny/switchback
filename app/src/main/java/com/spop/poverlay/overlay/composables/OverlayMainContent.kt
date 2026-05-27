@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spop.poverlay.overlay.StatCard
 import com.spop.poverlay.overlay.StatCardWidth
+import com.spop.poverlay.route.ManualResistanceGuidanceState
+import com.spop.poverlay.route.ResistanceDirection
 import com.spop.poverlay.route.RouteHudState
 
 @Composable
@@ -184,21 +186,63 @@ private fun SideRouteHudSummary(routeHudState: RouteHudState) {
             color = Color.White.copy(alpha = 0.75f),
             fontSize = 11.sp
         )
-        routeHudState.visualResistanceCue?.let {
-            Text(
-                text = "Cue $it",
-                color = Color(0xFF34D399),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
+        routeHudState.guidanceState?.let { guidance ->
+            CompactGuidanceLine(guidance)
         }
     }
 }
 
-private fun formatRouteHudSummary(routeHudState: RouteHudState): String =
-    "${routeHudState.routeName}  ${formatPercent(routeHudState.progressPercent)}  " +
-            "${formatMiles(routeHudState.remainingMiles)} mi left  grade ${formatGrade(routeHudState.gradePercent)}" +
-            routeHudState.visualResistanceCue?.let { "  cue $it" }.orEmpty()
+private fun formatRouteHudSummary(routeHudState: RouteHudState): String {
+    val base = "${routeHudState.routeName}  ${formatPercent(routeHudState.progressPercent)}  " +
+            "${formatMiles(routeHudState.remainingMiles)} mi left  grade ${formatGrade(routeHudState.gradePercent)}"
+    val guidanceSuffix = when (val g = routeHudState.guidanceState) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded ->
+            "  ${guidanceArrow(g.direction)}${if (g.delta >= 0) "+${g.delta}" else "${g.delta}"}→${g.targetCenter}"
+        is ManualResistanceGuidanceState.Upcoming ->
+            "  ${guidanceArrow(g.direction)}${g.targetCenter} in ${g.etaSeconds}s"
+        is ManualResistanceGuidanceState.InRange ->
+            "  ✓ ${g.targetMin}–${g.targetMax}"
+        is ManualResistanceGuidanceState.Stale ->
+            "  ~${g.targetCenter}"
+        else -> ""
+    }
+    return base + guidanceSuffix
+}
+
+@Composable
+private fun CompactGuidanceLine(guidance: ManualResistanceGuidanceState) {
+    val (color, text) = when (guidance) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded -> Pair(
+            Color(0xFF34D399),
+            "${guidanceArrow(guidance.direction)} ${if (guidance.delta >= 0) "+${guidance.delta}" else "${guidance.delta}"} → ${guidance.targetCenter}  (now ${guidance.currentResistance})"
+        )
+        is ManualResistanceGuidanceState.Upcoming -> Pair(
+            Color(0xFFFBBF24),
+            "${guidanceArrow(guidance.direction)} ${guidance.targetCenter} in ${guidance.etaSeconds}s"
+        )
+        is ManualResistanceGuidanceState.InRange -> Pair(
+            Color(0xFF6EE7B7),
+            "✓ ${guidance.targetMin}–${guidance.targetMax}"
+        )
+        is ManualResistanceGuidanceState.Stale -> Pair(
+            Color(0xFF71717A),
+            "~ ${guidance.targetCenter}  (now ${guidance.currentResistance})"
+        )
+        ManualResistanceGuidanceState.Neutral -> return
+    }
+    Text(
+        text = text,
+        color = color,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+private fun guidanceArrow(direction: ResistanceDirection): String = when (direction) {
+    ResistanceDirection.Up -> "▲"
+    ResistanceDirection.Down -> "▼"
+    ResistanceDirection.Hold -> "●"
+}
 
 private fun formatPercent(value: Double): String =
     "${value.toInt().coerceIn(0, 100)}%"

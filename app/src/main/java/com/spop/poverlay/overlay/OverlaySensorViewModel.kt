@@ -16,6 +16,8 @@ import com.spop.poverlay.sensor.interfaces.SensorInterface
 import com.spop.poverlay.sensor.v2.BikePlusService
 import com.spop.poverlay.route.ImportedRoute
 import com.spop.poverlay.route.GradeResistanceMapper
+import com.spop.poverlay.route.ManualResistanceGuidanceEngine
+import com.spop.poverlay.route.ManualResistanceTolerance
 import com.spop.poverlay.route.RouteHudState
 import com.spop.poverlay.route.RouteResistancePreset
 import com.spop.poverlay.route.RouteRideRuntime
@@ -96,6 +98,7 @@ class OverlaySensorViewModel(
     private var lastRideActiveState: Boolean? = null
     private var lastNoActiveRouteLogAtMs = 0L
     private var lastRouteProgressLogAtMs = 0L
+    private val routeGuidanceEngine = ManualResistanceGuidanceEngine()
 
 
     fun onDismissErrorPressed() {
@@ -295,6 +298,7 @@ class OverlaySensorViewModel(
                     latestRouteGradePercent = 0.0
                     savedRouteStartPositionMeters = 0.0
                     lastRouteProgressSaveAtMs = 0L
+                    routeGuidanceEngine.reset()
                 } else {
                     savedRouteStartPositionMeters = configurationRepository.activeRoutePositionMeters.value
                         .coerceIn(0.0, route.metadata.distanceMeters)
@@ -351,6 +355,31 @@ class OverlaySensorViewModel(
                 "Route progress: route=${route.name} rideActive=$isRideActive positionMeters=${progress.positionMeters} rawGrade=${progress.gradePercent} smoothedGrade=$smoothedGrade simulation=${configurationRepository.routeResistanceSimulationEnabled.value}"
             )
         }
+        val currentResistance = latestResistance.value
+        val guidanceState = if (!IsBikePlus && currentResistance != null) {
+            val baseline = routeResistanceBaseline ?: currentResistance
+            val preset = RouteResistancePreset.fromId(
+                configurationRepository.routeResistancePreset.value
+            )
+            routeGuidanceEngine.evaluate(
+                currentResistance = currentResistance,
+                guidanceBaseline = baseline,
+                smoothedGradePercent = smoothedGrade,
+                upcomingPoints = progress.upcomingPoints,
+                currentPositionMeters = progress.positionMeters,
+                speedMph = latestSpeedMph.value,
+                toleranceMode = ManualResistanceTolerance.fromId(
+                    configurationRepository.manualResistanceTolerance.value
+                ),
+                warningSeconds = configurationRepository.manualResistanceWarningSeconds.value,
+                enabled = configurationRepository.manualResistanceGuidanceEnabled.value,
+                isBikePlus = IsBikePlus,
+                timestampMs = SystemClock.elapsedRealtime(),
+                preset = preset
+            )
+        } else {
+            null
+        }
         mutableRouteHudState.value = RouteHudState(
             routeName = route.name,
             progressPercent = progress.progressPercent,
@@ -363,11 +392,8 @@ class OverlaySensorViewModel(
             elevationMeters = progress.elevationMeters,
             points = route.points,
             isComplete = progress.isComplete,
-            visualResistanceCue = if (IsBikePlus) {
-                null
-            } else latestResistance.value?.let {
-                visualResistanceCue(it, smoothedGrade)
-            }
+            visualResistanceCue = null,
+            guidanceState = guidanceState
         )
         maybeSaveRouteProgress(progress.positionMeters)
         maybeApplyRouteResistance(smoothedGrade, isRideActive)
@@ -483,24 +509,6 @@ class OverlaySensorViewModel(
             RouteResistanceLogTag,
             "Route resistance automation suspended: manual=$manualResistance baseline=$routeResistanceBaseline grade=$latestRouteGradePercent resumeInMs=$MANUAL_ROUTE_OVERRIDE_SUSPEND_MS"
         )
-    }
-
-    private fun visualResistanceCue(
-        currentResistance: Int,
-        gradePercent: Double
-    ): String {
-        val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
-        val target = GradeResistanceMapper(preset).targetResistance(
-            baselineResistance = currentResistance,
-            gradePercent = gradePercent,
-            previousRequestedResistance = currentResistance
-        )
-        val delta = target - currentResistance
-        return when {
-            delta > 0 -> "+$delta to $target"
-            delta < 0 -> "$delta to $target"
-            else -> "Hold $target"
-        }
     }
 
     // Happens last to ensure initialization order is correct

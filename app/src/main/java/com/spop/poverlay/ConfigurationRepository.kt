@@ -27,7 +27,10 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         HudShowTime("hudShowTime"),
         HudShowResistance("hudShowResistance"),
         HudShowHeartRate("hudShowHeartRate"),
-        HudShowCalories("hudShowCalories")
+        HudShowCalories("hudShowCalories"),
+        ManualResistanceGuidanceEnabled("manualResistanceGuidanceEnabled"),
+        ManualResistanceTolerance("manualResistanceTolerance"),
+        ManualResistanceWarningSeconds("manualResistanceWarningSeconds")
     }
 
     companion object {
@@ -56,6 +59,9 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     private val mutableHudShowResistance = MutableStateFlow(true)
     private val mutableHudShowHeartRate = MutableStateFlow(true)
     private val mutableHudShowCalories = MutableStateFlow(true)
+    private val mutableManualResistanceGuidanceEnabled = MutableStateFlow(true)
+    private val mutableManualResistanceTolerance = MutableStateFlow("normal")
+    private val mutableManualResistanceWarningSeconds = MutableStateFlow(10)
 
     val showTimerWhenMinimized = mutableShowTimerWhenMinimized
     val bikePlusResistanceControlEnabled = mutableBikePlusResistanceControlEnabled
@@ -75,6 +81,9 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     val hudShowResistance = mutableHudShowResistance
     val hudShowHeartRate = mutableHudShowHeartRate
     val hudShowCalories = mutableHudShowCalories
+    val manualResistanceGuidanceEnabled = mutableManualResistanceGuidanceEnabled
+    val manualResistanceTolerance = mutableManualResistanceTolerance
+    val manualResistanceWarningSeconds = mutableManualResistanceWarningSeconds
 
     private val sharedPreferences: SharedPreferences
 
@@ -195,6 +204,24 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         }
     }
 
+    fun setManualResistanceGuidanceEnabled(isEnabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(Preferences.ManualResistanceGuidanceEnabled.key, isEnabled)
+        }
+    }
+
+    fun setManualResistanceTolerance(toleranceId: String) {
+        sharedPreferences.edit {
+            putString(Preferences.ManualResistanceTolerance.key, toleranceId)
+        }
+    }
+
+    fun setManualResistanceWarningSeconds(seconds: Int) {
+        sharedPreferences.edit {
+            putInt(Preferences.ManualResistanceWarningSeconds.key, seconds)
+        }
+    }
+
     private fun updateFromSharedPrefs() {
         mutableShowTimerWhenMinimized.value =
             sharedPreferences
@@ -251,7 +278,15 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         mutableHudShowCalories.value =
             sharedPreferences
                 .getBoolean(Preferences.HudShowCalories.key, true)
-
+        mutableManualResistanceGuidanceEnabled.value =
+            sharedPreferences
+                .getBoolean(Preferences.ManualResistanceGuidanceEnabled.key, true)
+        mutableManualResistanceTolerance.value =
+            sharedPreferences
+                .getString(Preferences.ManualResistanceTolerance.key, "normal") ?: "normal"
+        mutableManualResistanceWarningSeconds.value =
+            sharedPreferences
+                .getInt(Preferences.ManualResistanceWarningSeconds.key, 10)
     }
 
     override fun close() {

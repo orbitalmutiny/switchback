@@ -54,6 +54,9 @@ import com.spop.poverlay.ride.RideTotalsPeriod
 import com.spop.poverlay.ride.availableRideTotalsPeriods
 import com.spop.poverlay.ride.rideTotalsForPeriod
 import com.spop.poverlay.route.ImportedRoute
+import com.spop.poverlay.route.ManualResistanceGuidanceState
+import com.spop.poverlay.route.ManualResistanceTolerance
+import com.spop.poverlay.route.ResistanceDirection
 import com.spop.poverlay.route.RouteProgress
 import com.spop.poverlay.route.RouteUploadPortalState
 import com.spop.poverlay.route.RouteUploadQrCode
@@ -112,6 +115,12 @@ fun ConfigurationPage(
     val hudShowResistance by viewModel.hudShowResistance.collectAsStateWithLifecycle(initialValue = true)
     val hudShowHeartRate by viewModel.hudShowHeartRate.collectAsStateWithLifecycle(initialValue = true)
     val hudShowCalories by viewModel.hudShowCalories.collectAsStateWithLifecycle(initialValue = true)
+    val manualResistanceGuidanceEnabled by viewModel.manualResistanceGuidanceEnabled
+        .collectAsStateWithLifecycle(initialValue = true)
+    val manualResistanceTolerance by viewModel.manualResistanceTolerance
+        .collectAsStateWithLifecycle(initialValue = "normal")
+    val manualResistanceWarningSeconds by viewModel.manualResistanceWarningSeconds
+        .collectAsStateWithLifecycle(initialValue = 10)
 
     SwitchbackShell(
         timerShownWhenMinimized = timerShownWhenMinimized,
@@ -153,6 +162,12 @@ fun ConfigurationPage(
         onHudShowHeartRateToggled = viewModel::onHudShowHeartRateClicked,
         onHudShowCaloriesToggled = viewModel::onHudShowCaloriesClicked,
         onResetHud = viewModel::onResetHudClicked,
+        manualResistanceGuidanceEnabled = manualResistanceGuidanceEnabled,
+        manualResistanceTolerance = manualResistanceTolerance,
+        manualResistanceWarningSeconds = manualResistanceWarningSeconds,
+        onManualResistanceGuidanceEnabledToggled = viewModel::onManualResistanceGuidanceEnabledClicked,
+        onManualResistanceToleranceSelected = viewModel::onManualResistanceToleranceSelected,
+        onManualResistanceWarningSecondsSelected = viewModel::onManualResistanceWarningSecondsSelected,
         onClickedStartOverlay = viewModel::onStartServiceClicked,
         onClickedStopOverlay = viewModel::onStopServiceClicked,
         onClickedRestartApp = viewModel::onRestartClicked,
@@ -215,6 +230,12 @@ private fun SwitchbackShell(
     onHudShowHeartRateToggled: (Boolean) -> Unit,
     onHudShowCaloriesToggled: (Boolean) -> Unit,
     onResetHud: () -> Unit,
+    manualResistanceGuidanceEnabled: Boolean,
+    manualResistanceTolerance: String,
+    manualResistanceWarningSeconds: Int,
+    onManualResistanceGuidanceEnabledToggled: (Boolean) -> Unit,
+    onManualResistanceToleranceSelected: (String) -> Unit,
+    onManualResistanceWarningSecondsSelected: (Int) -> Unit,
     onClickedStartOverlay: () -> Unit,
     onClickedStopOverlay: () -> Unit,
     onClickedRestartApp: () -> Unit,
@@ -330,6 +351,12 @@ private fun SwitchbackShell(
                     onRouteResistanceSimulationToggled = onRouteResistanceSimulationToggled,
                     onHeartRateMonitorEnabledToggled = onHeartRateMonitorEnabledToggled,
                     onRideSessionRecordingEnabledToggled = onRideSessionRecordingEnabledToggled,
+                    manualResistanceGuidanceEnabled = manualResistanceGuidanceEnabled,
+                    manualResistanceTolerance = manualResistanceTolerance,
+                    manualResistanceWarningSeconds = manualResistanceWarningSeconds,
+                    onManualResistanceGuidanceEnabledToggled = onManualResistanceGuidanceEnabledToggled,
+                    onManualResistanceToleranceSelected = onManualResistanceToleranceSelected,
+                    onManualResistanceWarningSecondsSelected = onManualResistanceWarningSecondsSelected,
                     onClickedRestartApp = onClickedRestartApp,
                     onClickedRelease = onClickedRelease,
                     latestRelease = latestRelease
@@ -921,6 +948,12 @@ private fun SettingsPage(
     onRouteResistanceSimulationToggled: (Boolean) -> Unit,
     onHeartRateMonitorEnabledToggled: (Boolean) -> Unit,
     onRideSessionRecordingEnabledToggled: (Boolean) -> Unit,
+    manualResistanceGuidanceEnabled: Boolean,
+    manualResistanceTolerance: String,
+    manualResistanceWarningSeconds: Int,
+    onManualResistanceGuidanceEnabledToggled: (Boolean) -> Unit,
+    onManualResistanceToleranceSelected: (String) -> Unit,
+    onManualResistanceWarningSecondsSelected: (Int) -> Unit,
     onClickedRestartApp: () -> Unit,
     onClickedRelease: (Release) -> Unit,
     latestRelease: Release?
@@ -989,6 +1022,33 @@ private fun SettingsPage(
                     checked = routeResistanceSimulationEnabled,
                     onCheckedChange = onRouteResistanceSimulationToggled
                 )
+            }
+        }
+
+        // ── Manual Resistance Guidance ──────────────────────────────────────
+        if (!IsBikePlus) {
+            item { SettingsSectionTitle("Manual Resistance Guidance") }
+            item {
+                SettingsToggle(
+                    title = "Enable resistance guidance",
+                    subtitle = "Shows advisory targets on Ride page and HUD based on active route grade",
+                    checked = manualResistanceGuidanceEnabled,
+                    onCheckedChange = onManualResistanceGuidanceEnabledToggled
+                )
+            }
+            if (manualResistanceGuidanceEnabled) {
+                item {
+                    GuidanceTolerancePicker(
+                        selectedId = manualResistanceTolerance,
+                        onSelected = onManualResistanceToleranceSelected
+                    )
+                }
+                item {
+                    GuidanceWarningSetting(
+                        selectedSeconds = manualResistanceWarningSeconds,
+                        onSelected = onManualResistanceWarningSecondsSelected
+                    )
+                }
             }
         }
 
@@ -1471,6 +1531,99 @@ private fun SettingsToggle(
 }
 
 @Composable
+private fun GuidanceTolerancePicker(
+    selectedId: String,
+    onSelected: (String) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text(
+                text = "Target Tolerance",
+                color = Color.White,
+                fontSize = 18.sp
+            )
+            Text(
+                text = "How close your resistance must be to the route target",
+                color = Color(0xFFA1A1AA),
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ManualResistanceTolerance.values().forEach { tolerance ->
+                    val isSelected = tolerance.id == selectedId
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelected(tolerance.id) },
+                        color = if (isSelected) Color(0xFF064E3B) else Color(0xFF27272A),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = tolerance.label,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            color = if (isSelected) Color(0xFF34D399) else Color(0xFFA1A1AA),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuidanceWarningSetting(
+    selectedSeconds: Int,
+    onSelected: (Int) -> Unit
+) {
+    val options = listOf(0 to "Off", 5 to "5s", 10 to "10s", 15 to "15s")
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text(
+                text = "Advance Warning",
+                color = Color.White,
+                fontSize = 18.sp
+            )
+            Text(
+                text = "How many seconds ahead to warn about an upcoming grade change",
+                color = Color(0xFFA1A1AA),
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { (seconds, label) ->
+                    val isSelected = seconds == selectedSeconds
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelected(seconds) },
+                        color = if (isSelected) Color(0xFF064E3B) else Color(0xFF27272A),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            color = if (isSelected) Color(0xFF34D399) else Color(0xFFA1A1AA),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReleaseStatus(
     latestRelease: Release?,
     onClickedRelease: (Release) -> Unit
@@ -1689,7 +1842,104 @@ private fun LiveDashboardPage(
                 }
             }
         }
+        // Guidance card — only shown when there's an active route and guidance state is present
+        state.guidanceState?.let { guidance ->
+            item {
+                RideGuidanceCard(guidance)
+            }
+        }
     }
+}
+
+@Composable
+private fun RideGuidanceCard(guidance: ManualResistanceGuidanceState) {
+    val (bgColor, accentColor, title, body) = when (guidance) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded -> GuidanceCardContent(
+            bgColor = Color(0xFF052E16),
+            accentColor = Color(0xFF34D399),
+            title = "Adjust Resistance",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        is ManualResistanceGuidanceState.Upcoming -> GuidanceCardContent(
+            bgColor = Color(0xFF1C1400),
+            accentColor = Color(0xFFFBBF24),
+            title = "Upcoming Change  ·  ${guidance.etaSeconds}s",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        is ManualResistanceGuidanceState.InRange -> GuidanceCardContent(
+            bgColor = Color(0xFF0A2018),
+            accentColor = Color(0xFF6EE7B7),
+            title = "On Target",
+            body = "In range  ${guidance.targetMin}–${guidance.targetMax}  ·  Now ${guidance.currentResistance}"
+        )
+        is ManualResistanceGuidanceState.Stale -> GuidanceCardContent(
+            bgColor = Color(0xFF18181B),
+            accentColor = Color(0xFF71717A),
+            title = "Guidance Stale",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        ManualResistanceGuidanceState.Neutral -> return
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = bgColor,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = accentColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = body,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+private data class GuidanceCardContent(
+    val bgColor: Color,
+    val accentColor: Color,
+    val title: String,
+    val body: String
+)
+
+private fun buildGuidanceAdjustText(
+    current: Int,
+    target: Int,
+    min: Int,
+    max: Int,
+    delta: Int,
+    direction: ResistanceDirection
+): String {
+    val arrow = when (direction) {
+        ResistanceDirection.Up -> "▲"
+        ResistanceDirection.Down -> "▼"
+        ResistanceDirection.Hold -> "●"
+    }
+    val sign = if (delta >= 0) "+$delta" else "$delta"
+    return "$arrow $sign  →  $target  (range $min–$max)  ·  Now $current"
 }
 
 @Composable

@@ -12,5 +12,8 @@ data class RouteHudState(
     val elevationMeters: Double?,
     val points: List<RoutePoint>,
     val isComplete: Boolean,
-    val visualResistanceCue: String? = null
+    /** Kept for backward compatibility; set to null going forward. UI uses [guidanceState]. */
+    val visualResistanceCue: String? = null,
+    /** Typed manual resistance guidance state for non-Bike+ rides. Null when inactive. */
+    val guidanceState: ManualResistanceGuidanceState? = null
 )

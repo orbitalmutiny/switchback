@@ -19,8 +19,11 @@ import com.spop.poverlay.ride.RideSessionStore
 import com.spop.poverlay.ride.RideSessionSummary
 import com.spop.poverlay.route.ImportedRoute
 import com.spop.poverlay.route.GradeResistanceMapper
+import com.spop.poverlay.route.ManualResistanceGuidanceEngine
+import com.spop.poverlay.route.ManualResistanceTolerance
 import com.spop.poverlay.route.RouteGradeSmoother
 import com.spop.poverlay.route.RouteHudState
+import com.spop.poverlay.route.RouteProgress
 import com.spop.poverlay.route.RouteResistancePreset
 import com.spop.poverlay.route.RouteRideRuntime
 import com.spop.poverlay.route.RouteRideState
@@ -71,6 +74,9 @@ class ConfigurationViewModel(
     var routeRideState = mutableStateOf<RouteRideState>(RouteRideState.Idle)
     var routeUploadPortalState = mutableStateOf(RouteUploadPortalState())
     var liveRideDashboardState = mutableStateOf(LiveRideDashboardState())
+
+    private val dashboardGuidanceEngine = ManualResistanceGuidanceEngine()
+    private var dashboardGuidanceBaseline: Int? = null
 
     private val rideSessionStore = RideSessionStore(application)
     private val routeStore = RouteStore(File(application.filesDir, "routes"))
@@ -139,6 +145,12 @@ class ConfigurationViewModel(
         get() = configurationRepository.hudShowHeartRate
     val hudShowCalories
         get() = configurationRepository.hudShowCalories
+    val manualResistanceGuidanceEnabled
+        get() = configurationRepository.manualResistanceGuidanceEnabled
+    val manualResistanceTolerance
+        get() = configurationRepository.manualResistanceTolerance
+    val manualResistanceWarningSeconds
+        get() = configurationRepository.manualResistanceWarningSeconds
     val overlayRunning
         get() = OverlayService.isRunning
 
@@ -213,6 +225,19 @@ class ConfigurationViewModel(
 
     fun onHudShowCaloriesClicked(isChecked: Boolean) {
         configurationRepository.setHudFieldVisible(ConfigurationRepository.Preferences.HudShowCalories, isChecked)
+    }
+
+    fun onManualResistanceGuidanceEnabledClicked(isEnabled: Boolean) {
+        configurationRepository.setManualResistanceGuidanceEnabled(isEnabled)
+        if (!isEnabled) dashboardGuidanceEngine.reset()
+    }
+
+    fun onManualResistanceToleranceSelected(toleranceId: String) {
+        configurationRepository.setManualResistanceTolerance(toleranceId)
+    }
+
+    fun onManualResistanceWarningSecondsSelected(seconds: Int) {
+        configurationRepository.setManualResistanceWarningSeconds(seconds)
     }
 
     fun onResetHudClicked() {
@@ -426,6 +451,9 @@ class ConfigurationViewModel(
         configurationRepository.setActiveRouteId(route.id)
         configurationRepository.setActiveRoutePositionMeters(savedPosition)
         routeRideState.value = routeRideRuntime.state
+        // Reset guidance baseline so it is re-captured from current resistance for this route
+        // context rather than carrying over from a previous route or stale state.
+        resetDashboardRouteResistanceAutomation()
         infoPopup.value = if (savedPosition > 0.0) {
             "Resumed ${route.name}"
         } else {
@@ -446,6 +474,7 @@ class ConfigurationViewModel(
         routeRideRuntime.reset()
         configurationRepository.setActiveRouteId(null)
         routeRideState.value = routeRideRuntime.state
+        resetDashboardRouteResistanceAutomation()
         infoPopup.value = "Route cleared"
     }
 
@@ -458,6 +487,7 @@ class ConfigurationViewModel(
                     routeRideRuntime.reset()
                     routeRideState.value = routeRideRuntime.state
                     configurationRepository.setActiveRouteId(null)
+                    resetDashboardRouteResistanceAutomation()
                 }
                 selectedRoute.value = null
                 importedRoutes.value = routes
@@ -539,26 +569,48 @@ class ConfigurationViewModel(
                 }
                 val nextElapsed = if (isActive) current.elapsedSeconds + 1L else current.elapsedSeconds
                 val nextWork = if (isActive) current.workKilojoules + current.powerWatts / 1000f else current.workKilojoules
-                val routeHudState = dashboardRouteHudState(nextDistance)
+                val (routeHudState, routeProgress) = dashboardRouteHudState(nextDistance)
                 maybeApplyDashboardRouteResistance(
                     routeHudState = routeHudState,
                     isRideActive = isActive,
                     currentResistance = current.resistance
                 )
+                // Guard: do not capture baseline until real resistance telemetry has arrived.
+                // current.resistance defaults to 0 before any telemetry; locking in 0 would
+                // produce bogus guidance targets for the entire ride.
+                val guidanceState = if (!IsBikePlus && routeHudState != null && dashboardResistanceTelemetrySeen) {
+                    val baseline = dashboardGuidanceBaseline
+                        ?: current.resistance.also { dashboardGuidanceBaseline = it }
+                    val preset = RouteResistancePreset.fromId(
+                        configurationRepository.routeResistancePreset.value
+                    )
+                    dashboardGuidanceEngine.evaluate(
+                        currentResistance = current.resistance,
+                        guidanceBaseline = baseline,
+                        smoothedGradePercent = routeHudState.gradePercent,
+                        upcomingPoints = routeProgress?.upcomingPoints ?: emptyList(),
+                        currentPositionMeters = routeProgress?.positionMeters ?: 0.0,
+                        speedMph = speedMph,
+                        toleranceMode = ManualResistanceTolerance.fromId(
+                            configurationRepository.manualResistanceTolerance.value
+                        ),
+                        warningSeconds = configurationRepository.manualResistanceWarningSeconds.value,
+                        enabled = configurationRepository.manualResistanceGuidanceEnabled.value,
+                        isBikePlus = IsBikePlus,
+                        timestampMs = android.os.SystemClock.elapsedRealtime(),
+                        preset = preset
+                    )
+                } else {
+                    null
+                }
                 liveRideDashboardState.value = current.copy(
                     speedMph = speedMph,
                     distanceMiles = nextDistance,
                     elapsedSeconds = nextElapsed,
                     workKilojoules = nextWork,
                     routeHudState = routeHudState,
-                    visualResistanceCue = if (IsBikePlus) {
-                        null
-                    } else routeHudState?.let {
-                        visualResistanceCue(
-                            currentResistance = current.resistance,
-                            gradePercent = it.gradePercent
-                        )
-                    }
+                    visualResistanceCue = null,
+                    guidanceState = guidanceState
                 )
             }
         }
@@ -658,18 +710,20 @@ class ConfigurationViewModel(
         dashboardLastRouteResistanceRequest = null
         dashboardRouteResistanceWriteAtMs = 0L
         dashboardRouteResistanceWriteInFlight = false
+        dashboardGuidanceBaseline = null
+        dashboardGuidanceEngine.reset()
     }
 
-    private fun dashboardRouteHudState(distanceMiles: Float): RouteHudState? {
+    private fun dashboardRouteHudState(distanceMiles: Float): Pair<RouteHudState?, RouteProgress?> {
         val activeRoute = configurationRepository.activeRouteId.value?.let { routeStore.loadRoute(it) }
-            ?: return null
+            ?: return Pair(null, null)
         val startPositionMeters = configurationRepository.activeRoutePositionMeters.value
             .coerceIn(0.0, activeRoute.metadata.distanceMeters)
         val progress = RouteRideRuntime()
             .start(activeRoute, startPositionMeters + (distanceMiles.toDouble() * 1609.344))
         val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
         val grade = RouteGradeSmoother(preset.lookAheadMeters).gradePercent(activeRoute, progress.positionMeters)
-        return RouteHudState(
+        val hudState = RouteHudState(
             routeName = activeRoute.name,
             progressPercent = progress.progressPercent,
             positionMeters = progress.positionMeters,
@@ -681,33 +735,9 @@ class ConfigurationViewModel(
             elevationMeters = progress.elevationMeters,
             points = activeRoute.points,
             isComplete = progress.isComplete,
-            visualResistanceCue = if (IsBikePlus) {
-                null
-            } else {
-                visualResistanceCue(
-                    currentResistance = liveRideDashboardState.value.resistance,
-                    gradePercent = grade
-                )
-            }
+            visualResistanceCue = null
         )
-    }
-
-    private fun visualResistanceCue(
-        currentResistance: Int,
-        gradePercent: Double
-    ): String {
-        val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
-        val target = GradeResistanceMapper(preset).targetResistance(
-            baselineResistance = currentResistance,
-            gradePercent = gradePercent,
-            previousRequestedResistance = currentResistance
-        )
-        val delta = target - currentResistance
-        return when {
-            delta > 0 -> "+$delta to $target"
-            delta < 0 -> "$delta to $target"
-            else -> "Hold $target"
-        }
+        return Pair(hudState, progress)
     }
 
     override fun onCleared() {
