@@ -634,11 +634,10 @@ class ManualResistanceGuidanceEngineTest {
     @Test
     fun upcomingDownhillDirectionIsDown() {
         // Current area is steep uphill (grade 10%) → target ~45.
-        // Upcoming segment drops back to flat → target 30; delta = 30 - 30 = 0... actually
-        // we need the upcoming target to differ from currentTarget by > halfBand.
-        // Current: baseline=30, grade 10% → target=30+15=45 (currentTarget passed to checkUpcoming)
-        // Upcoming at 50m: grade = (10-20)/50*100 = -20% → target = 30 + round(-20*2.0) = 30-40 = 0 (floor)
-        // |0 - 45| = 45 > 4, at 15mph → 50/6.7 ≈ 7s <= 10s warning → Upcoming with Down direction
+        // Upcoming segment drops sharply at -20% grade.
+        // Standard: baseline=30, upcoming grade=-20% → effectiveBaseline=max(30,20)=30,
+        //   adj=round(-20*2.0)=-40, raw=-10, floor applied → segmentTarget=max(-10,20)=20
+        // |20 - 45| = 25 > 4, at 15mph → 50/6.7 ≈ 7s <= 10s warning → Upcoming with Down direction
         val points = makePoints(
             0.0 to 20.0,    // rider is here; going to 50m
             50.0 to 10.0,   // elevation drops 10m over 50m → grade = -20%
@@ -662,6 +661,223 @@ class ManualResistanceGuidanceEngineTest {
             state is ManualResistanceGuidanceState.Upcoming)
         val upcoming = state as ManualResistanceGuidanceState.Upcoming
         assertEquals(ResistanceDirection.Down, upcoming.direction)
+        // Floor must be respected — target can't be below baselineResistanceFloor (20)
+        assertTrue("Upcoming targetCenter must be >= floor (20), was ${upcoming.targetCenter}",
+            upcoming.targetCenter >= preset.baselineResistanceFloor)
+    }
+
+    // ── Floor/ceiling clamping ────────────────────────────────────────────────
+
+    @Test
+    fun targetFloorAppliedOnDownhill() {
+        // Standard floor=20, baseline=30, grade=-20% (downhill rate 2.0/grade)
+        // effectiveBaseline=max(30,20)=30; adj=round(-20*2.0)=-40; raw=-10
+        // Floor applied → target = max(-10, 20) = 20
+        // Without the fix, raw.coerceIn(0,100) would give target=0.
+        val state = engine.evaluate(
+            currentResistance = 20,
+            guidanceBaseline = 30,
+            smoothedGradePercent = -20.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0,
+            preset = preset
+        )
+        assertTrue("Expected InRange at floor target, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target center must equal floor (20), not sub-floor value",
+            20, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    @Test
+    fun targetFloorAppliedWhenBaselineBelowFloorOnDownhill() {
+        // baseline=5 (below Standard floor=20), grade=-5%
+        // effectiveBaseline = max(5, 20) = 20; adj = round(-5*2.0) = -10; raw = 10
+        // Floor applied → target = max(10, 20) = 20
+        val state = engine.evaluate(
+            currentResistance = 20,
+            guidanceBaseline = 5,
+            smoothedGradePercent = -5.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0,
+            preset = preset
+        )
+        assertTrue("Expected InRange with floor applied to low baseline on downhill, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals(20, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    @Test
+    fun targetNeverExceedsCeiling() {
+        // Extreme uphill: baseline=90, grade=20% (uphill 1.5/grade)
+        // raw = max(90,20) + round(20*1.5) = 90 + 30 = 120 → coerceIn(0,100) = 100
+        val state = engine.evaluate(
+            currentResistance = 100,
+            guidanceBaseline = 90,
+            smoothedGradePercent = 20.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0,
+            preset = preset
+        )
+        assertTrue("Expected InRange at ceiling target, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target center must be clamped to ceiling (100)",
+            100, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    // ── Target stability (anti-flap) ──────────────────────────────────────────
+
+    @Test
+    fun pendingTargetNotCommittedBeforeDwell() {
+        // Seed committed target = 30 (flat grade)
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 0.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0, preset = preset
+        )
+        // Grade shifts: raw target now 36 (baseline=30, grade=4% → 30+round(4*1.5)=36).
+        // Evaluated at t0+100ms — well short of 1200ms dwell — committed target stays 30.
+        val state = engine.evaluate(
+            currentResistance = 30,
+            guidanceBaseline = 30,
+            smoothedGradePercent = 4.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0 + 100,
+            preset = preset
+        )
+        assertTrue("Expected InRange at committed target 30 before dwell, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target center must still be committed value 30",
+            30, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    @Test
+    fun pendingTargetCommittedAfterDwell() {
+        // Seed committed target = 30
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 0.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0, preset = preset
+        )
+        // Grade shifts at t0+100ms (pending=36 since t0+100)
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 4.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0 + 100, preset = preset
+        )
+        // At t0+1400ms: dwell = 1400-100 = 1300ms >= 1200ms → pending 36 is now committed
+        val state = engine.evaluate(
+            currentResistance = 36,
+            guidanceBaseline = 30,
+            smoothedGradePercent = 4.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0 + 1400,
+            preset = preset
+        )
+        assertTrue("Expected InRange at newly committed target 36 after dwell, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target center must be committed value 36",
+            36, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    @Test
+    fun pendingTargetClearedIfRawTargetReverts() {
+        // Seed committed target = 30
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 0.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0, preset = preset
+        )
+        // Grade shifts to 4% (pending target = 36, since = t0+100)
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 4.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0 + 100, preset = preset
+        )
+        // Grade reverts to 0% at t0+500ms (before dwell expires) — pending must be cleared
+        val state = engine.evaluate(
+            currentResistance = 30,
+            guidanceBaseline = 30,
+            smoothedGradePercent = 0.0,
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0 + 500,
+            preset = preset
+        )
+        assertTrue("Expected InRange at committed target 30 after grade revert, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target center must remain committed 30 after revert",
+            30, (state as ManualResistanceGuidanceState.InRange).targetCenter)
+    }
+
+    @Test
+    fun resetClearsPendingAndCommittedTargets() {
+        // Seed committed target = 30
+        engine.evaluate(
+            currentResistance = 30, guidanceBaseline = 30, smoothedGradePercent = 0.0,
+            upcomingPoints = emptyList(), currentPositionMeters = 0.0, speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal, warningSeconds = 0,
+            enabled = true, isBikePlus = false, timestampMs = t0, preset = preset
+        )
+        engine.reset()
+        // After reset, first eval with a different grade commits immediately (no dwell delay)
+        val state = engine.evaluate(
+            currentResistance = 38,
+            guidanceBaseline = 30,
+            smoothedGradePercent = 5.0,  // target = 30 + round(5*1.5) = 38
+            upcomingPoints = emptyList(),
+            currentPositionMeters = 0.0,
+            speedMph = 0f,
+            toleranceMode = ManualResistanceTolerance.Normal,
+            warningSeconds = 0,
+            enabled = true,
+            isBikePlus = false,
+            timestampMs = t0 + 50_000,
+            preset = preset
+        )
+        assertTrue("Expected InRange at immediately-committed target after reset, got $state",
+            state is ManualResistanceGuidanceState.InRange)
+        assertEquals("Target must commit immediately on first eval after reset",
+            38, (state as ManualResistanceGuidanceState.InRange).targetCenter)
     }
 
     // ── Upcoming: warningSeconds boundary (inclusive) ─────────────────────────

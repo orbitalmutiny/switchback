@@ -74,8 +74,7 @@ fun OverlayMainContent(
             ) {
                 Row(
                     modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                        ,
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     stats.forEachIndexed { index, stat ->
@@ -182,7 +181,7 @@ private fun GuidedResistanceTile(
     // Fixed height regardless of subtitle presence — prevents the outer Row from resizing
     // when guidance state transitions, which was causing the visible layout shift / bottom gap.
     Surface(
-        modifier = modifier.height(88.dp),
+        modifier = modifier.height(96.dp),
         color = Color(0xFF13161D),
         shape = RoundedCornerShape(10.dp)
     ) {
@@ -238,7 +237,7 @@ private fun guidanceStyle(guidance: ManualResistanceGuidanceState): GuidanceStyl
         )
         is ManualResistanceGuidanceState.InRange -> GuidanceStyle(
             color = Color(0xFF22C55E),
-            icon = "\u2713",
+            icon = "\u2022",
             subtitle = null
         )
         is ManualResistanceGuidanceState.Stale -> GuidanceStyle(

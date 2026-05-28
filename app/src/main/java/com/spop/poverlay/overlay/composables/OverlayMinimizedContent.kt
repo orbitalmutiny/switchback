@@ -261,7 +261,7 @@ private fun miniGuidanceIndicator(guidanceState: ManualResistanceGuidanceState?)
         } else {
             "\u2198" to Color(0xFF3B82F6)
         }
-        is ManualResistanceGuidanceState.InRange -> "\u2713" to Color(0xFF22C55E)
+        is ManualResistanceGuidanceState.InRange -> "\u2022" to Color(0xFF22C55E)
         is ManualResistanceGuidanceState.Stale -> "\u2022" to Color.White
         else -> "\u2022" to Color.White.copy(alpha = 0.5f)
     }
