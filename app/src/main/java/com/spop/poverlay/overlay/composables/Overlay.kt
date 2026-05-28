@@ -1,4 +1,4 @@
-package com.spop.poverlay.overlay
+﻿package com.spop.poverlay.overlay
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.TweenSpec
@@ -27,7 +27,6 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spop.poverlay.overlay.composables.OverlayMainContent
 import com.spop.poverlay.overlay.composables.OverlayMinimizedContent
-import com.spop.poverlay.route.ManualResistanceGuidanceState
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
 
@@ -144,7 +143,7 @@ fun Overlay(
             speedLabel = speed,
             distanceLabel = distance,
             resistanceLabel = resistance,
-            resistanceGuidanceSuffix = minimizedResistanceGuidanceSuffix(routeHudState?.guidanceState),
+            guidanceState = routeHudState?.guidanceState,
             heartRateLabel = heartRate,
             caloriesLabel = calories,
             showPower = showPower,
@@ -161,7 +160,7 @@ fun Overlay(
     }
     val mainContent = @Composable {
         Box(modifier = Modifier
-            .then(if (location.isHorizontal) Modifier.requiredHeight(height) else Modifier.wrapContentHeight())
+            .wrapContentHeight()
             .wrapContentWidth(unbounded = true)
             .onSizeChanged {
                 if (it.width != size.value.width || it.height != size.value.height) {
@@ -194,7 +193,7 @@ fun Overlay(
                 modifier = Modifier
                     .wrapContentWidth(unbounded = true)
                     .padding(horizontal = 9.dp)
-                    .padding(bottom = 5.dp),
+                    .padding(bottom = 6.dp),
                 isHorizontal = location.isHorizontal,
                 power = power,
                 speed = speed,
@@ -279,15 +278,3 @@ fun Overlay(
     }
 
 }
-
-private fun minimizedResistanceGuidanceSuffix(guidance: ManualResistanceGuidanceState?): String? =
-    when (guidance) {
-        is ManualResistanceGuidanceState.AdjustmentNeeded ->
-            if (guidance.delta >= 0) "▲${guidance.delta}" else "▼${-guidance.delta}"
-        is ManualResistanceGuidanceState.Upcoming ->
-            if (guidance.delta >= 0) "▲${guidance.delta}!" else "▼${-guidance.delta}!"
-        is ManualResistanceGuidanceState.InRange -> "•"
-        is ManualResistanceGuidanceState.Stale ->
-            if (guidance.delta >= 0) "▲${guidance.delta}" else "▼${-guidance.delta}"
-        else -> null
-    }
