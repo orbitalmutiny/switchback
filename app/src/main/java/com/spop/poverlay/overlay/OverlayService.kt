@@ -86,6 +86,7 @@ class OverlayService : LifecycleEnabledService() {
         const val EdgeDockDragThreshold = .25f
 
         const val SideDockInsetPx = 32
+        const val VerticalDockInsetPx = 12
 
         // Replace with DeadSensorInterface to simulate a dead sensor
         val EmulatorSensorInterface by lazy { DummySensorInterface() }
@@ -387,22 +388,49 @@ class OverlayService : LifecycleEnabledService() {
                 val touchTargetHeight = values[4] as Float
                 val (width, height)  = values[5] as Pair<Int,Int>
                 val (mWidth, mHeight)  = values[6] as Pair<Int,Int>
-                overlayParams.x = if (location.isHorizontal) {
-                    origin.x.roundToInt()
+                val activeWidth = if (sensorViewModel.isMinimized.value) mWidth else width
+                val clampedX = if (location.isHorizontal) {
+                    if (activeWidth > 0) {
+                        val halfRange = ((screenSize.width - activeWidth) / 2f).coerceAtLeast(0f)
+                        origin.x.coerceIn(-halfRange, halfRange).roundToInt()
+                    } else {
+                        // Fallback: if layout width is unresolved, center instead of preserving stale/off-screen X.
+                        0
+                    }
                 } else {
                     SideDockInsetPx
                 }
-                overlayParams.y = origin.y.roundToInt()
+                overlayParams.x = if (location.isHorizontal) {
+                    clampedX
+                } else {
+                    SideDockInsetPx
+                }
+                val clampedY = if (location.isHorizontal) {
+                    origin.y.roundToInt().coerceAtLeast(VerticalDockInsetPx)
+                } else {
+                    origin.y.roundToInt()
+                }
+                overlayParams.y = clampedY
                 overlayParams.flags = DefaultOverlayFlags or overlayFlags
                 overlayParams.gravity = gravity
-                overlayParams.width = width
-                overlayParams.height = if(sensorViewModel.isMinimized.value){
-                    mHeight
-                }else{
+                overlayParams.width = if (sensorViewModel.isMinimized.value) {
+                    mWidth
+                } else {
+                    width
+                }
+                overlayParams.height = if (sensorViewModel.isMinimized.value) {
+                    // The window must be tall enough for both mainContent and mini HUD so that
+                    // Compose can measure and lay out both children. The visibilityOffset in
+                    // Overlay.kt pushes mainContent above the canvas top (clipped/off-screen);
+                    // the mini HUD lands at canvas y=0, screen y=inset. Using only mHeight here
+                    // constrains the Column to the mini HUD height — Compose never lays out the
+                    // timer child, so the surface renders empty.
+                    if (height > 0 && mHeight > 0) height + mHeight else LayoutParams.WRAP_CONTENT
+                } else {
                     height
                 }
                 touchTargetParams.x = overlayParams.x
-                touchTargetParams.y = origin.y.roundToInt()
+                touchTargetParams.y = clampedY
                 touchTargetParams.gravity = gravity
                 touchTargetParams.width = mWidth
                 touchTargetParams.height = touchTargetHeight.roundToInt()
