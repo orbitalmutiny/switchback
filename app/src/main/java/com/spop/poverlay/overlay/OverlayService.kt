@@ -379,7 +379,8 @@ class OverlayService : LifecycleEnabledService() {
                 dialogViewModel.partialOverlayFlags,
                 dialogViewModel.touchTargetHeight,
                 dialogViewModel.dialogSizeParams,
-                dialogViewModel.minimizedDialogSizeParams
+                dialogViewModel.minimizedDialogSizeParams,
+                sensorViewModel.isMinimized
             ) { values ->
                 val origin = values[0] as Offset
                 val location = values[1] as OverlayLocation
@@ -388,7 +389,8 @@ class OverlayService : LifecycleEnabledService() {
                 val touchTargetHeight = values[4] as Float
                 val (width, height)  = values[5] as Pair<Int,Int>
                 val (mWidth, mHeight)  = values[6] as Pair<Int,Int>
-                val activeWidth = if (sensorViewModel.isMinimized.value) mWidth else width
+                val isMinimized = values[7] as Boolean
+                val activeWidth = if (isMinimized) mWidth else width
                 val clampedX = if (location.isHorizontal) {
                     if (activeWidth > 0) {
                         val halfRange = ((screenSize.width - activeWidth) / 2f).coerceAtLeast(0f)
@@ -406,19 +408,20 @@ class OverlayService : LifecycleEnabledService() {
                     SideDockInsetPx
                 }
                 val clampedY = if (location.isHorizontal) {
-                    origin.y.roundToInt().coerceAtLeast(VerticalDockInsetPx)
+                    val minY = if (isMinimized) VerticalDockInsetPx else 0
+                    origin.y.roundToInt().coerceAtLeast(minY)
                 } else {
                     origin.y.roundToInt()
                 }
                 overlayParams.y = clampedY
                 overlayParams.flags = DefaultOverlayFlags or overlayFlags
                 overlayParams.gravity = gravity
-                overlayParams.width = if (sensorViewModel.isMinimized.value) {
+                overlayParams.width = if (isMinimized) {
                     mWidth
                 } else {
                     width
                 }
-                overlayParams.height = if (sensorViewModel.isMinimized.value) {
+                overlayParams.height = if (isMinimized) {
                     // The window must be tall enough for both mainContent and mini HUD so that
                     // Compose can measure and lay out both children. The visibilityOffset in
                     // Overlay.kt pushes mainContent above the canvas top (clipped/off-screen);

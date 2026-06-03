@@ -91,7 +91,7 @@ fun OverlayMainContent(
                                 currentResistance = stat.value,
                                 guidance = routeHudState?.guidanceState ?: ManualResistanceGuidanceState.Neutral,
                                 modifier = Modifier
-                                    .requiredWidth(188.dp)
+                                    .requiredWidth(120.dp)
                                     .padding(horizontal = 4.dp)
                             )
                         } else {
@@ -150,13 +150,9 @@ private fun FullHudStatCell(
         Text(
             text = stat.value,
             color = Color.White,
-            fontSize = when {
-                stat.value.length >= 5 -> 24.sp
-                stat.value.length >= 4 -> 28.sp
-                else -> 32.sp
-            },
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            lineHeight = 32.sp,
+            lineHeight = 26.sp,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip
@@ -180,25 +176,20 @@ private fun GuidedResistanceTile(
     val isUpcoming = guidance is ManualResistanceGuidanceState.Upcoming
     // Fixed height regardless of subtitle presence — prevents the outer Row from resizing
     // when guidance state transitions, which was causing the visible layout shift / bottom gap.
-    Surface(
-        modifier = modifier.height(96.dp),
-        color = Color(0xFF13161D),
-        shape = RoundedCornerShape(10.dp)
+    Column(
+        modifier = modifier
+            .height(96.dp)
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Resistance", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
+            Text("Resistance", color = Color.White.copy(alpha = 0.9f), fontSize = 10.sp)
             Text(
                 text = "${style.icon} $currentResistance",
                 color = style.color,
-                fontSize = 33.sp,
+                fontSize = 27.sp,
                 fontWeight = FontWeight.Bold,
-                lineHeight = 33.sp
+                lineHeight = 28.sp
             )
             // Always reserve the subtitle row — transparent text when inactive so the tile
             // height and content centering are identical across all guidance states.
@@ -213,7 +204,6 @@ private fun GuidedResistanceTile(
                 softWrap = false,
                 overflow = TextOverflow.Clip
             )
-        }
     }
 }
 

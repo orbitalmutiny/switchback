@@ -97,11 +97,11 @@ fun ConfigurationPage(
     val timerShownWhenMinimized by viewModel.showTimerWhenMinimized
         .collectAsStateWithLifecycle(initialValue = true)
     val bikePlusResistanceControlEnabled by viewModel.bikePlusResistanceControlEnabled
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val bikePlusResistanceControlOverlayVisible by viewModel.bikePlusResistanceControlOverlayVisible
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val routeResistanceSimulationEnabled by viewModel.routeResistanceSimulationEnabled
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val routeResistancePreset by viewModel.routeResistancePreset
         .collectAsStateWithLifecycle(initialValue = RouteResistancePreset.Default.id)
     val heartRateMonitorEnabled by viewModel.heartRateMonitorEnabled

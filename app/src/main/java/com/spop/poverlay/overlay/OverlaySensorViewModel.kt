@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -45,7 +46,6 @@ private const val MetersPerMile = 1609.344
 private const val ResistanceLogTag = "GrupettoResistance"
 private const val RouteResistanceLogTag = "SwitchbackRouteResistance"
 private const val MIN_ROUTE_PROGRESS_SAVE_INTERVAL_MS = 5_000L
-private const val MANUAL_ROUTE_OVERRIDE_SUSPEND_MS = 30_000L
 
 class OverlaySensorViewModel(
     application: Application,
@@ -63,9 +63,7 @@ class OverlaySensorViewModel(
 
         // Max number of points before data starts to shift
         const val GraphMaxDataPoints = 300
-
     }
-
 
     //TODO: Move this logic to dialog view model
     private val mutableIsMinimized = MutableStateFlow(configurationRepository.hudCollapsed.value)
@@ -82,23 +80,25 @@ class OverlaySensorViewModel(
     private val mutableRideWorkKilojoules = MutableStateFlow(0f)
     private val mutableRouteHudState = MutableStateFlow<RouteHudState?>(null)
     private val heartRateFlow = heartRateBpm ?: MutableStateFlow(null)
-    private var lastRequestedResistance: Int? = null
+    @Volatile private var lastRequestedResistance: Int? = null
     private var bikePlusService: BikePlusService? = null
     private var activeRoute: ImportedRoute? = null
     private var routeStartedAtDistanceMiles = 0f
     private val routeRideRuntime = RouteRideRuntime()
-    private var routeResistanceBaseline: Int? = null
-    private var lastRouteResistanceRequest: Int? = null
-    private var lastRouteResistanceWriteAtMs = 0L
-    private var routeResistanceWriteInFlight = false
-    private var routeAutomationSuspendedUntilMs = 0L
-    private var latestRouteGradePercent = 0.0
+    @Volatile private var routeResistanceBaseline: Int? = null
+    @Volatile private var lastRouteResistanceRequest: Int? = null
+    @Volatile private var lastRouteResistanceWriteAtMs = 0L
+    private val routeResistanceWriteInFlight = AtomicBoolean(false)
+    @Volatile private var latestRouteGradePercent = 0.0
     private var savedRouteStartPositionMeters = 0.0
     private var lastRouteProgressSaveAtMs = 0L
     private var lastRideActiveState: Boolean? = null
     private var lastNoActiveRouteLogAtMs = 0L
     private var lastRouteProgressLogAtMs = 0L
     private val routeGuidanceEngine = ManualResistanceGuidanceEngine()
+
+    // Auto-resistance write gate: suspension, 3-strikes disable, and target dwell.
+    private val autoResistanceController = AutoResistanceController()
 
 
     fun onDismissErrorPressed() {
@@ -293,12 +293,12 @@ class OverlaySensorViewModel(
                     routeResistanceBaseline = null
                     lastRouteResistanceRequest = null
                     lastRouteResistanceWriteAtMs = 0L
-                    routeResistanceWriteInFlight = false
-                    routeAutomationSuspendedUntilMs = 0L
+                    routeResistanceWriteInFlight.set(false)
                     latestRouteGradePercent = 0.0
                     savedRouteStartPositionMeters = 0.0
                     lastRouteProgressSaveAtMs = 0L
                     routeGuidanceEngine.reset()
+                    autoResistanceController.reset()
                 } else {
                     savedRouteStartPositionMeters = configurationRepository.activeRoutePositionMeters.value
                         .coerceIn(0.0, route.metadata.distanceMeters)
@@ -311,14 +311,27 @@ class OverlaySensorViewModel(
                     routeResistanceBaseline = latestResistance.value
                     lastRouteResistanceRequest = routeResistanceBaseline
                     lastRouteResistanceWriteAtMs = 0L
-                    routeAutomationSuspendedUntilMs = 0L
                     latestRouteGradePercent = 0.0
+                    autoResistanceController.reset()
                     Log.i(
                         RouteResistanceLogTag,
                         "Active route loaded: id=${route.id} name=${route.name} savedPositionMeters=$savedRouteStartPositionMeters distanceMeters=${route.metadata.distanceMeters} baseline=$routeResistanceBaseline simulation=${configurationRepository.routeResistanceSimulationEnabled.value}"
                     )
                     updateActiveRouteProgress(isRideActive = false)
                 }
+            }
+        }
+
+        // When the user explicitly re-enables auto-resistance after it was disabled (either
+        // manually or by the 3-strike rule), reset the controller so the session starts clean.
+        viewModelScope.launch(Dispatchers.IO) {
+            var previousEnabled = configurationRepository.routeResistanceSimulationEnabled.value
+            configurationRepository.routeResistanceSimulationEnabled.collect { enabled ->
+                if (enabled && !previousEnabled) {
+                    autoResistanceController.onAutoReEnabled()
+                    Log.i(RouteResistanceLogTag, "Auto resistance re-enabled: controller reset")
+                }
+                previousEnabled = enabled
             }
         }
     }
@@ -427,10 +440,10 @@ class OverlaySensorViewModel(
             return
         }
         val now = SystemClock.elapsedRealtime()
-        if (now < routeAutomationSuspendedUntilMs) {
+        if (autoResistanceController.isSuspended(now)) {
             Log.i(
                 RouteResistanceLogTag,
-                "Route resistance skipped: manual override suspended remainingMs=${routeAutomationSuspendedUntilMs - now}"
+                "Route resistance skipped: manual override suspended remainingMs=${autoResistanceController.suspendedUntilMs - now}"
             )
             return
         }
@@ -449,52 +462,75 @@ class OverlaySensorViewModel(
             gradePercent = gradePercent,
             previousRequestedResistance = lastRouteResistanceRequest
         )
-        if (targetResistance == lastRouteResistanceRequest || routeResistanceWriteInFlight) {
+        if (targetResistance == lastRouteResistanceRequest || routeResistanceWriteInFlight.get()) {
+            // Target is already at desired value or a write is in progress — clear pending.
+            autoResistanceController.clearPending()
             Log.i(
                 RouteResistanceLogTag,
-                "Route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=$gradePercent lastRequested=$lastRouteResistanceRequest target=$targetResistance inFlight=$routeResistanceWriteInFlight"
+                "Route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=$gradePercent lastRequested=$lastRouteResistanceRequest target=$targetResistance inFlight=${routeResistanceWriteInFlight.get()}"
             )
             return
         }
+
+        // Dwell check: the target must remain stable for the dwell window before we commit it.
+        // This prevents oscillation caused by rolling grade noise alternating between two values.
+        val committedTarget = autoResistanceController.stabilizeTarget(targetResistance, now)
+        if (committedTarget == null) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Route resistance deferred: target=$targetResistance pending dwell baseline=$baseline grade=$gradePercent"
+            )
+            return
+        }
+
         if (lastRouteResistanceWriteAtMs != 0L &&
             now - lastRouteResistanceWriteAtMs < preset.minWriteIntervalMs
         ) {
             Log.i(
                 RouteResistanceLogTag,
-                "Route resistance skipped: rate limited elapsedMs=${now - lastRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$targetResistance"
+                "Route resistance skipped: rate limited elapsedMs=${now - lastRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$committedTarget"
             )
             return
         }
 
-        routeResistanceWriteInFlight = true
+        if (!routeResistanceWriteInFlight.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
-            val bikePlusService = bikePlusService
-                ?: bikePlusServiceProvider?.invoke()?.also {
-                    this@OverlaySensorViewModel.bikePlusService = it
+            try {
+                val bikePlusService = bikePlusService
+                    ?: bikePlusServiceProvider?.invoke()?.also {
+                        this@OverlaySensorViewModel.bikePlusService = it
+                    }
+                if (bikePlusService == null) {
+                    Log.i(RouteResistanceLogTag, "Route resistance skipped: control unavailable")
+                    return@launch
                 }
-            if (bikePlusService == null) {
-                Log.i(RouteResistanceLogTag, "Route resistance skipped: control unavailable")
-                routeResistanceWriteInFlight = false
-                return@launch
+                Log.i(
+                    RouteResistanceLogTag,
+                    "Route resistance target: preset=${preset.id} baseline=$baseline grade=$gradePercent target=$committedTarget"
+                )
+                bikePlusService
+                    .setResistance(committedTarget)
+                    .onSuccess {
+                        lastRouteResistanceRequest = it
+                        lastRouteResistanceWriteAtMs = SystemClock.elapsedRealtime()
+                        Log.i(RouteResistanceLogTag, "Route resistance sent: resistance=$it")
+                    }
+                    .onFailure {
+                        Log.e(RouteResistanceLogTag, "Route resistance write failed", it)
+                    }
+            } finally {
+                routeResistanceWriteInFlight.set(false)
             }
-            Log.i(
-                RouteResistanceLogTag,
-                "Route resistance target: preset=${preset.id} baseline=$baseline grade=$gradePercent target=$targetResistance"
-            )
-            bikePlusService
-                .setResistance(targetResistance)
-                .onSuccess {
-                    lastRouteResistanceRequest = it
-                    lastRouteResistanceWriteAtMs = SystemClock.elapsedRealtime()
-                    Log.i(RouteResistanceLogTag, "Route resistance sent: resistance=$it")
-                }
-                .onFailure {
-                    Log.e(RouteResistanceLogTag, "Route resistance write failed", it)
-                }
-            routeResistanceWriteInFlight = false
         }
     }
 
+    /**
+     * Called when the rider manually changes resistance while auto-control is active.
+     *
+     * - Suspends auto writes for 30 s (window refreshes on each call).
+     * - After 3 manual overrides within an active auto-control context, disables auto-resistance
+     *   in settings so it stays off until the user explicitly re-enables it.
+     */
     private fun suspendRouteResistanceAutomation(manualResistance: Int) {
         if (activeRoute == null || !configurationRepository.routeResistanceSimulationEnabled.value) {
             return
@@ -502,17 +538,28 @@ class OverlaySensorViewModel(
         val preset = RouteResistancePreset.fromId(configurationRepository.routeResistancePreset.value)
         val mapper = GradeResistanceMapper(preset)
         val now = SystemClock.elapsedRealtime()
-        routeAutomationSuspendedUntilMs = now + MANUAL_ROUTE_OVERRIDE_SUSPEND_MS
+
+        val shouldDisableAuto = autoResistanceController.recordManualOverride(now)
+
         lastRouteResistanceRequest = manualResistance
         routeResistanceBaseline = mapper.baselineForTargetResistance(
             targetResistance = manualResistance,
             gradePercent = latestRouteGradePercent
         )
         lastRouteResistanceWriteAtMs = now
+
         Log.i(
             RouteResistanceLogTag,
-            "Route resistance automation suspended: manual=$manualResistance baseline=$routeResistanceBaseline grade=$latestRouteGradePercent resumeInMs=$MANUAL_ROUTE_OVERRIDE_SUSPEND_MS"
+            "Route resistance automation suspended: manual=$manualResistance baseline=$routeResistanceBaseline grade=$latestRouteGradePercent strikeCount=${autoResistanceController.strikeCount} resumeInMs=${autoResistanceController.suspendedUntilMs - now}"
         )
+
+        if (shouldDisableAuto) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Auto resistance disabled: rider manually overrode ${autoResistanceController.strikeThreshold} times"
+            )
+            configurationRepository.setRouteResistanceSimulationEnabled(false)
+        }
     }
 
     // Happens last to ensure initialization order is correct
@@ -542,4 +589,3 @@ class OverlaySensorViewModel(
         }
     }
 }
-

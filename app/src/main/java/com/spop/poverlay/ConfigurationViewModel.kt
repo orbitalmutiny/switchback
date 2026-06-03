@@ -40,10 +40,13 @@ import com.spop.poverlay.sensor.interfaces.PelotonBikePlusSensorInterface
 import com.spop.poverlay.sensor.interfaces.PelotonBikeSensorInterfaceV1New
 import com.spop.poverlay.sensor.interfaces.SensorInterface
 import com.spop.poverlay.sensor.v2.BikePlusService
+import com.spop.poverlay.overlay.AutoResistanceController
 import com.spop.poverlay.util.IsBikePlus
 import com.spop.poverlay.util.IsRunningOnPeloton
 import com.spop.poverlay.util.calculateSpeedFromPelotonV1Power
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -93,8 +96,9 @@ class ConfigurationViewModel(
     private var dashboardRouteResistanceBaseline: Int? = null
     private var dashboardLastRouteResistanceRequest: Int? = null
     private var dashboardRouteResistanceWriteAtMs = 0L
-    private var dashboardRouteResistanceWriteInFlight = false
+    private val dashboardRouteResistanceWriteInFlight = AtomicBoolean(false)
     private var dashboardResistanceTelemetrySeen = false
+    private val dashboardAutoResistanceController = AutoResistanceController()
     private val routeUploadServer: RouteUploadServer = RouteUploadServer(
         routeStore = routeStore,
         onImported = {
@@ -557,6 +561,17 @@ class ConfigurationViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
+            var previousEnabled = configurationRepository.routeResistanceSimulationEnabled.value
+            configurationRepository.routeResistanceSimulationEnabled.collect { enabled ->
+                if (enabled && !previousEnabled) {
+                    dashboardAutoResistanceController.onAutoReEnabled()
+                    Log.i(RouteResistanceLogTag, "Dashboard auto resistance re-enabled: controller reset")
+                }
+                previousEnabled = enabled
+            }
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 kotlinx.coroutines.delay(1000L)
                 val current = liveRideDashboardState.value
@@ -638,6 +653,7 @@ class ConfigurationViewModel(
             dashboardRouteResistanceBaseline = null
             dashboardLastRouteResistanceRequest = null
             dashboardRouteResistanceWriteAtMs = 0L
+            dashboardAutoResistanceController.reset()
         }
         if (!isRideActive) {
             Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: ride inactive")
@@ -661,50 +677,92 @@ class ConfigurationViewModel(
             gradePercent = routeHudState.gradePercent,
             previousRequestedResistance = dashboardLastRouteResistanceRequest
         )
-        if (targetResistance == dashboardLastRouteResistanceRequest || dashboardRouteResistanceWriteInFlight) {
+        val now = SystemClock.elapsedRealtime()
+
+        // Detect physical knob override: current resistance diverged from what auto last wrote.
+        val lastRequest = dashboardLastRouteResistanceRequest
+        if (lastRequest != null && !dashboardRouteResistanceWriteInFlight.get() &&
+            abs(currentResistance - lastRequest) > 1
+        ) {
+            val shouldDisableAuto = dashboardAutoResistanceController.recordManualOverride(now)
+            val mapper = GradeResistanceMapper(preset)
+            dashboardRouteResistanceBaseline = mapper.baselineForTargetResistance(
+                targetResistance = currentResistance,
+                gradePercent = routeHudState.gradePercent
+            )
+            dashboardLastRouteResistanceRequest = currentResistance
             Log.i(
                 RouteResistanceLogTag,
-                "Dashboard route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=${routeHudState.gradePercent} lastRequested=$dashboardLastRouteResistanceRequest target=$targetResistance inFlight=$dashboardRouteResistanceWriteInFlight"
+                "Dashboard manual override detected: resistance=$currentResistance strikeCount=${dashboardAutoResistanceController.strikeCount}"
+            )
+            if (shouldDisableAuto) {
+                Log.i(RouteResistanceLogTag, "Dashboard auto resistance disabled: too many manual overrides")
+                configurationRepository.setRouteResistanceSimulationEnabled(false)
+                return
+            }
+        }
+
+        if (dashboardAutoResistanceController.isSuspended(now)) {
+            Log.i(RouteResistanceLogTag, "Dashboard route resistance suspended: manual override active")
+            return
+        }
+
+        if (targetResistance == dashboardLastRouteResistanceRequest || dashboardRouteResistanceWriteInFlight.get()) {
+            dashboardAutoResistanceController.clearPending()
+            Log.i(
+                RouteResistanceLogTag,
+                "Dashboard route resistance skipped: no target change or write in flight baseline=$baseline current=$currentResistance grade=${routeHudState.gradePercent} lastRequested=$dashboardLastRouteResistanceRequest target=$targetResistance inFlight=${dashboardRouteResistanceWriteInFlight.get()}"
             )
             return
         }
-        val now = SystemClock.elapsedRealtime()
+
+        val committedTarget = dashboardAutoResistanceController.stabilizeTarget(targetResistance, now)
+        if (committedTarget == null) {
+            Log.i(
+                RouteResistanceLogTag,
+                "Dashboard route resistance deferred: target=$targetResistance pending dwell baseline=$baseline grade=${routeHudState.gradePercent}"
+            )
+            return
+        }
+
         if (dashboardRouteResistanceWriteAtMs != 0L &&
             now - dashboardRouteResistanceWriteAtMs < preset.minWriteIntervalMs
         ) {
             Log.i(
                 RouteResistanceLogTag,
-                "Dashboard route resistance skipped: rate limited elapsedMs=${now - dashboardRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$targetResistance"
+                "Dashboard route resistance skipped: rate limited elapsedMs=${now - dashboardRouteResistanceWriteAtMs} minMs=${preset.minWriteIntervalMs} target=$committedTarget"
             )
             return
         }
 
-        dashboardRouteResistanceWriteInFlight = true
+        if (!dashboardRouteResistanceWriteInFlight.compareAndSet(false, true)) return
         viewModelScope.launch(Dispatchers.IO) {
-            val bikePlusService = dashboardBikePlusService
-                ?: (dashboardSensorInterface as? PelotonBikePlusSensorInterface)
-                    ?.getBikePlusService(configurationRepository)
-                    ?.also { dashboardBikePlusService = it }
-            if (bikePlusService == null) {
-                Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: control unavailable")
-                dashboardRouteResistanceWriteInFlight = false
-                return@launch
+            try {
+                val bikePlusService = dashboardBikePlusService
+                    ?: (dashboardSensorInterface as? PelotonBikePlusSensorInterface)
+                        ?.getBikePlusService(configurationRepository)
+                        ?.also { dashboardBikePlusService = it }
+                if (bikePlusService == null) {
+                    Log.i(RouteResistanceLogTag, "Dashboard route resistance skipped: control unavailable")
+                    return@launch
+                }
+                Log.i(
+                    RouteResistanceLogTag,
+                    "Dashboard route resistance target: preset=${preset.id} baseline=$baseline grade=${routeHudState.gradePercent} target=$committedTarget"
+                )
+                bikePlusService
+                    .setResistance(committedTarget)
+                    .onSuccess {
+                        dashboardLastRouteResistanceRequest = it
+                        dashboardRouteResistanceWriteAtMs = SystemClock.elapsedRealtime()
+                        Log.i(RouteResistanceLogTag, "Dashboard route resistance sent: resistance=$it")
+                    }
+                    .onFailure {
+                        Log.e(RouteResistanceLogTag, "Dashboard route resistance write failed", it)
+                    }
+            } finally {
+                dashboardRouteResistanceWriteInFlight.set(false)
             }
-            Log.i(
-                RouteResistanceLogTag,
-                "Dashboard route resistance target: preset=${preset.id} baseline=$baseline grade=${routeHudState.gradePercent} target=$targetResistance"
-            )
-            bikePlusService
-                .setResistance(targetResistance)
-                .onSuccess {
-                    dashboardLastRouteResistanceRequest = it
-                    dashboardRouteResistanceWriteAtMs = SystemClock.elapsedRealtime()
-                    Log.i(RouteResistanceLogTag, "Dashboard route resistance sent: resistance=$it")
-                }
-                .onFailure {
-                    Log.e(RouteResistanceLogTag, "Dashboard route resistance write failed", it)
-                }
-            dashboardRouteResistanceWriteInFlight = false
         }
     }
 
@@ -713,9 +771,10 @@ class ConfigurationViewModel(
         dashboardRouteResistanceBaseline = null
         dashboardLastRouteResistanceRequest = null
         dashboardRouteResistanceWriteAtMs = 0L
-        dashboardRouteResistanceWriteInFlight = false
+        dashboardRouteResistanceWriteInFlight.set(false)
         dashboardGuidanceBaseline = null
         dashboardGuidanceEngine.reset()
+        dashboardAutoResistanceController.reset()
     }
 
     private fun dashboardRouteHudState(distanceMiles: Float): Pair<RouteHudState?, RouteProgress?> {

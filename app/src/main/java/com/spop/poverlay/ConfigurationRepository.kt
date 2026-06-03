@@ -7,7 +7,20 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.flow.MutableStateFlow
 
-class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) : AutoCloseable {
+class ConfigurationRepository private constructor(
+    private val sharedPreferencesProvider: () -> SharedPreferences,
+    lifecycleOwner: LifecycleOwner
+) : AutoCloseable {
+
+    constructor(context: Context, lifecycleOwner: LifecycleOwner) : this(
+        sharedPreferencesProvider = { context.getSharedPreferences(SharedPrefsName, Context.MODE_PRIVATE) },
+        lifecycleOwner = lifecycleOwner
+    )
+
+    internal constructor(sharedPreferences: SharedPreferences, lifecycleOwner: LifecycleOwner) : this(
+        sharedPreferencesProvider = { sharedPreferences },
+        lifecycleOwner = lifecycleOwner
+    )
 
     enum class Preferences(val key: String) {
         ShowTimerWhenMinimized("showTimerWhenMinimized"),
@@ -85,7 +98,7 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     val manualResistanceTolerance = mutableManualResistanceTolerance
     val manualResistanceWarningSeconds = mutableManualResistanceWarningSeconds
 
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences = sharedPreferencesProvider()
 
     // Must be kept as reference, unowned lambda would be garbage collected
     private fun createSharedPreferencesListener() =
@@ -96,7 +109,6 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     private val listener : SharedPreferences.OnSharedPreferenceChangeListener
 
     init {
-        sharedPreferences = context.getSharedPreferences(SharedPrefsName, Context.MODE_PRIVATE)
         updateFromSharedPrefs()
 
         listener = createSharedPreferencesListener()

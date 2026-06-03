@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -213,39 +212,33 @@ private fun MiniResistanceField(
     guidanceState: ManualResistanceGuidanceState?
 ) {
     val (indicator, color) = miniGuidanceIndicator(guidanceState)
-    Surface(
-        modifier = modifier,
-        color = Color.White.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
+        Image(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Image(
-                modifier = Modifier
-                    .requiredHeight(20.dp)
-                    .requiredWidth(16.dp)
-                    .padding(vertical = 4.dp),
-                painter = painterResource(id = R.drawable.ic_resistance),
-                contentDescription = null,
-            )
-            Text(
-                text = resistanceLabel,
-                color = Color.White,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = indicator,
-                color = color,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+                .requiredHeight(20.dp)
+                .requiredWidth(16.dp)
+                .padding(vertical = 4.dp),
+            painter = painterResource(id = R.drawable.ic_resistance),
+            contentDescription = null,
+        )
+        Text(
+            text = resistanceLabel,
+            color = Color.White,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = indicator,
+            color = color,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
