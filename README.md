@@ -4,8 +4,6 @@ Switchback is an Android overlay app for the Peloton Bike+. It adds a real-time 
 
 > This project is experimental and unaffiliated with Peloton Interactive. It uses undocumented internal interfaces and may break with Peloton OS updates. Use at your own risk.
 
----
-
 ## Screenshots
 
 | Ride Dashboard | Routes |

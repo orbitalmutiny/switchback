@@ -54,6 +54,9 @@ import com.spop.poverlay.ride.RideTotalsPeriod
 import com.spop.poverlay.ride.availableRideTotalsPeriods
 import com.spop.poverlay.ride.rideTotalsForPeriod
 import com.spop.poverlay.route.ImportedRoute
+import com.spop.poverlay.route.ManualResistanceGuidanceState
+import com.spop.poverlay.route.ManualResistanceTolerance
+import com.spop.poverlay.route.ResistanceDirection
 import com.spop.poverlay.route.RouteProgress
 import com.spop.poverlay.route.RouteUploadPortalState
 import com.spop.poverlay.route.RouteUploadQrCode
@@ -94,11 +97,11 @@ fun ConfigurationPage(
     val timerShownWhenMinimized by viewModel.showTimerWhenMinimized
         .collectAsStateWithLifecycle(initialValue = true)
     val bikePlusResistanceControlEnabled by viewModel.bikePlusResistanceControlEnabled
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val bikePlusResistanceControlOverlayVisible by viewModel.bikePlusResistanceControlOverlayVisible
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val routeResistanceSimulationEnabled by viewModel.routeResistanceSimulationEnabled
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle()
     val routeResistancePreset by viewModel.routeResistancePreset
         .collectAsStateWithLifecycle(initialValue = RouteResistancePreset.Default.id)
     val heartRateMonitorEnabled by viewModel.heartRateMonitorEnabled
@@ -112,6 +115,12 @@ fun ConfigurationPage(
     val hudShowResistance by viewModel.hudShowResistance.collectAsStateWithLifecycle(initialValue = true)
     val hudShowHeartRate by viewModel.hudShowHeartRate.collectAsStateWithLifecycle(initialValue = true)
     val hudShowCalories by viewModel.hudShowCalories.collectAsStateWithLifecycle(initialValue = true)
+    val manualResistanceGuidanceEnabled by viewModel.manualResistanceGuidanceEnabled
+        .collectAsStateWithLifecycle(initialValue = true)
+    val manualResistanceTolerance by viewModel.manualResistanceTolerance
+        .collectAsStateWithLifecycle(initialValue = "normal")
+    val manualResistanceWarningSeconds by viewModel.manualResistanceWarningSeconds
+        .collectAsStateWithLifecycle(initialValue = 10)
 
     SwitchbackShell(
         timerShownWhenMinimized = timerShownWhenMinimized,
@@ -153,6 +162,12 @@ fun ConfigurationPage(
         onHudShowHeartRateToggled = viewModel::onHudShowHeartRateClicked,
         onHudShowCaloriesToggled = viewModel::onHudShowCaloriesClicked,
         onResetHud = viewModel::onResetHudClicked,
+        manualResistanceGuidanceEnabled = manualResistanceGuidanceEnabled,
+        manualResistanceTolerance = manualResistanceTolerance,
+        manualResistanceWarningSeconds = manualResistanceWarningSeconds,
+        onManualResistanceGuidanceEnabledToggled = viewModel::onManualResistanceGuidanceEnabledClicked,
+        onManualResistanceToleranceSelected = viewModel::onManualResistanceToleranceSelected,
+        onManualResistanceWarningSecondsSelected = viewModel::onManualResistanceWarningSecondsSelected,
         onClickedStartOverlay = viewModel::onStartServiceClicked,
         onClickedStopOverlay = viewModel::onStopServiceClicked,
         onClickedRestartApp = viewModel::onRestartClicked,
@@ -215,6 +230,12 @@ private fun SwitchbackShell(
     onHudShowHeartRateToggled: (Boolean) -> Unit,
     onHudShowCaloriesToggled: (Boolean) -> Unit,
     onResetHud: () -> Unit,
+    manualResistanceGuidanceEnabled: Boolean,
+    manualResistanceTolerance: String,
+    manualResistanceWarningSeconds: Int,
+    onManualResistanceGuidanceEnabledToggled: (Boolean) -> Unit,
+    onManualResistanceToleranceSelected: (String) -> Unit,
+    onManualResistanceWarningSecondsSelected: (Int) -> Unit,
     onClickedStartOverlay: () -> Unit,
     onClickedStopOverlay: () -> Unit,
     onClickedRestartApp: () -> Unit,
@@ -330,6 +351,12 @@ private fun SwitchbackShell(
                     onRouteResistanceSimulationToggled = onRouteResistanceSimulationToggled,
                     onHeartRateMonitorEnabledToggled = onHeartRateMonitorEnabledToggled,
                     onRideSessionRecordingEnabledToggled = onRideSessionRecordingEnabledToggled,
+                    manualResistanceGuidanceEnabled = manualResistanceGuidanceEnabled,
+                    manualResistanceTolerance = manualResistanceTolerance,
+                    manualResistanceWarningSeconds = manualResistanceWarningSeconds,
+                    onManualResistanceGuidanceEnabledToggled = onManualResistanceGuidanceEnabledToggled,
+                    onManualResistanceToleranceSelected = onManualResistanceToleranceSelected,
+                    onManualResistanceWarningSecondsSelected = onManualResistanceWarningSecondsSelected,
                     onClickedRestartApp = onClickedRestartApp,
                     onClickedRelease = onClickedRelease,
                     latestRelease = latestRelease
@@ -921,6 +948,12 @@ private fun SettingsPage(
     onRouteResistanceSimulationToggled: (Boolean) -> Unit,
     onHeartRateMonitorEnabledToggled: (Boolean) -> Unit,
     onRideSessionRecordingEnabledToggled: (Boolean) -> Unit,
+    manualResistanceGuidanceEnabled: Boolean,
+    manualResistanceTolerance: String,
+    manualResistanceWarningSeconds: Int,
+    onManualResistanceGuidanceEnabledToggled: (Boolean) -> Unit,
+    onManualResistanceToleranceSelected: (String) -> Unit,
+    onManualResistanceWarningSecondsSelected: (Int) -> Unit,
     onClickedRestartApp: () -> Unit,
     onClickedRelease: (Release) -> Unit,
     latestRelease: Release?
@@ -988,6 +1021,31 @@ private fun SettingsPage(
                     subtitle = "Adjusts Bike+ resistance from active route grade. Choose preset from Routes.",
                     checked = routeResistanceSimulationEnabled,
                     onCheckedChange = onRouteResistanceSimulationToggled
+                )
+            }
+        }
+
+        // ── Manual Resistance Guidance ──────────────────────────────────────
+        item { SettingsSectionTitle("Manual Resistance Guidance") }
+        item {
+            SettingsToggle(
+                title = "Enable resistance guidance",
+                subtitle = "Shows advisory targets on Ride page and HUD based on active route grade",
+                checked = manualResistanceGuidanceEnabled,
+                onCheckedChange = onManualResistanceGuidanceEnabledToggled
+            )
+        }
+        if (manualResistanceGuidanceEnabled) {
+            item {
+                GuidanceTolerancePicker(
+                    selectedId = manualResistanceTolerance,
+                    onSelected = onManualResistanceToleranceSelected
+                )
+            }
+            item {
+                GuidanceWarningSetting(
+                    selectedSeconds = manualResistanceWarningSeconds,
+                    onSelected = onManualResistanceWarningSecondsSelected
                 )
             }
         }
@@ -1471,6 +1529,99 @@ private fun SettingsToggle(
 }
 
 @Composable
+private fun GuidanceTolerancePicker(
+    selectedId: String,
+    onSelected: (String) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text(
+                text = "Target Tolerance",
+                color = Color.White,
+                fontSize = 18.sp
+            )
+            Text(
+                text = "How close your resistance must be to the route target",
+                color = Color(0xFFA1A1AA),
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ManualResistanceTolerance.values().forEach { tolerance ->
+                    val isSelected = tolerance.id == selectedId
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelected(tolerance.id) },
+                        color = if (isSelected) Color(0xFF064E3B) else Color(0xFF27272A),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = tolerance.label,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            color = if (isSelected) Color(0xFF34D399) else Color(0xFFA1A1AA),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuidanceWarningSetting(
+    selectedSeconds: Int,
+    onSelected: (Int) -> Unit
+) {
+    val options = listOf(0 to "Off", 5 to "5s", 10 to "10s", 15 to "15s")
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF18181B),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text(
+                text = "Advance Warning",
+                color = Color.White,
+                fontSize = 18.sp
+            )
+            Text(
+                text = "How many seconds ahead to warn about an upcoming grade change",
+                color = Color(0xFFA1A1AA),
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { (seconds, label) ->
+                    val isSelected = seconds == selectedSeconds
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelected(seconds) },
+                        color = if (isSelected) Color(0xFF064E3B) else Color(0xFF27272A),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            color = if (isSelected) Color(0xFF34D399) else Color(0xFFA1A1AA),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReleaseStatus(
     latestRelease: Release?,
     onClickedRelease: (Release) -> Unit
@@ -1597,7 +1748,7 @@ private fun LiveDashboardPage(
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             Row(
@@ -1606,7 +1757,7 @@ private fun LiveDashboardPage(
             ) {
                 Column(
                     modifier = Modifier.weight(2f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     RideRouteHeroPanel(
                         routeHudState = routeHudState,
@@ -1619,7 +1770,7 @@ private fun LiveDashboardPage(
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -1663,23 +1814,23 @@ private fun LiveDashboardPage(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Power", state.powerWatts.roundToInt().toString(), "W", Modifier.weight(1f))
                                 RideStatTile("Cadence", state.cadenceRpm.roundToInt().toString(), "RPM", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Heart Rate", state.heartRateBpm?.toString() ?: "--", "BPM", Modifier.weight(1f))
                                 RideStatTile("Speed", oneDecimal(state.speedMph), "MPH", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Resistance", state.resistance.toString(), "%", Modifier.weight(1f))
                                 RideStatTile("Calories", state.workKilojoules.toInt().toString(), "KCAL", Modifier.weight(1f))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 RideStatTile("Distance", oneDecimal(state.distanceMiles), "MI", Modifier.weight(1f))
                                 RideStatTile("Duration", DateUtils.formatElapsedTime(state.elapsedSeconds), "", Modifier.weight(1f))
@@ -1689,7 +1840,104 @@ private fun LiveDashboardPage(
                 }
             }
         }
+        // Guidance card — only shown when there's an active route and guidance state is present
+        state.guidanceState?.let { guidance ->
+            item {
+                RideGuidanceCard(guidance)
+            }
+        }
     }
+}
+
+@Composable
+private fun RideGuidanceCard(guidance: ManualResistanceGuidanceState) {
+    val (bgColor, accentColor, title, body) = when (guidance) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded -> GuidanceCardContent(
+            bgColor = Color(0xFF052E16),
+            accentColor = Color(0xFF34D399),
+            title = "Adjust Resistance",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        is ManualResistanceGuidanceState.Upcoming -> GuidanceCardContent(
+            bgColor = Color(0xFF1C1400),
+            accentColor = Color(0xFFFBBF24),
+            title = "Upcoming Change  ·  ${guidance.etaSeconds}s",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        is ManualResistanceGuidanceState.InRange -> GuidanceCardContent(
+            bgColor = Color(0xFF0A2018),
+            accentColor = Color(0xFF6EE7B7),
+            title = "On Target",
+            body = "In range  ${guidance.targetMin}–${guidance.targetMax}  ·  Now ${guidance.currentResistance}"
+        )
+        is ManualResistanceGuidanceState.Stale -> GuidanceCardContent(
+            bgColor = Color(0xFF18181B),
+            accentColor = Color(0xFF71717A),
+            title = "Guidance Stale",
+            body = buildGuidanceAdjustText(
+                guidance.currentResistance, guidance.targetCenter,
+                guidance.targetMin, guidance.targetMax, guidance.delta, guidance.direction
+            )
+        )
+        ManualResistanceGuidanceState.Neutral -> return
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = bgColor,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = accentColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = body,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+            }
+        }
+    }
+}
+
+private data class GuidanceCardContent(
+    val bgColor: Color,
+    val accentColor: Color,
+    val title: String,
+    val body: String
+)
+
+private fun buildGuidanceAdjustText(
+    current: Int,
+    target: Int,
+    min: Int,
+    max: Int,
+    delta: Int,
+    direction: ResistanceDirection
+): String {
+    val arrow = when (direction) {
+        ResistanceDirection.Up -> "▲"
+        ResistanceDirection.Down -> "▼"
+        ResistanceDirection.Hold -> "●"
+    }
+    val sign = if (delta >= 0) "+$delta" else "$delta"
+    return "$arrow $sign  →  $target  (range $min–$max)  ·  Now $current"
 }
 
 @Composable
@@ -1705,7 +1953,7 @@ private fun RideRouteHeroPanel(
         color = Color(0xFF18181B),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1720,7 +1968,7 @@ private fun RideRouteHeroPanel(
                     Text(
                         text = routeHudState?.routeName ?: "No Active Route",
                         color = Color.White,
-                        fontSize = 32.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -1741,26 +1989,26 @@ private fun RideRouteHeroPanel(
                     shape = MaterialTheme.shapes.large
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
                             text = "Current Grade",
                             color = Color(0xFF71717A),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = routeHudState?.let { formatPercent(it.gradePercent) } ?: "--",
                             color = Color(0xFF34D399),
-                            fontSize = 40.sp,
+                            fontSize = 34.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1769,11 +2017,11 @@ private fun RideRouteHeroPanel(
                 Surface(
                     modifier = Modifier
                         .weight(1.15f)
-                        .height(285.dp),
+                        .height(252.dp),
                     color = Color(0xFF09090B),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         if (routeHudState != null && routeHudState.points.size >= 2) {
                             DashboardRouteMap(
                                 routeHudState = routeHudState,
@@ -1781,7 +2029,7 @@ private fun RideRouteHeroPanel(
                                     .fillMaxWidth()
                                     .weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DashboardStatCard(
                                     label = "Remaining",
@@ -1827,11 +2075,11 @@ private fun RideRouteHeroPanel(
                 Surface(
                     modifier = Modifier
                         .weight(0.85f)
-                        .height(285.dp),
+                        .height(252.dp),
                     color = Color(0xFF09090B),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1841,7 +2089,7 @@ private fun RideRouteHeroPanel(
                                 Text(
                                     text = "Elevation",
                                     color = Color.White,
-                                    fontSize = 19.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
@@ -1852,7 +2100,7 @@ private fun RideRouteHeroPanel(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (routeHudState != null && routeHudState.points.size >= 2) {
                             DashboardElevationProfile(
                                 routeHudState = routeHudState,
@@ -1860,7 +2108,7 @@ private fun RideRouteHeroPanel(
                                     .fillMaxWidth()
                                     .weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DashboardStatCard(
                                     label = "Elevation",

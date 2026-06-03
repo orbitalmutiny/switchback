@@ -7,7 +7,20 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.flow.MutableStateFlow
 
-class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) : AutoCloseable {
+class ConfigurationRepository private constructor(
+    private val sharedPreferencesProvider: () -> SharedPreferences,
+    lifecycleOwner: LifecycleOwner
+) : AutoCloseable {
+
+    constructor(context: Context, lifecycleOwner: LifecycleOwner) : this(
+        sharedPreferencesProvider = { context.getSharedPreferences(SharedPrefsName, Context.MODE_PRIVATE) },
+        lifecycleOwner = lifecycleOwner
+    )
+
+    internal constructor(sharedPreferences: SharedPreferences, lifecycleOwner: LifecycleOwner) : this(
+        sharedPreferencesProvider = { sharedPreferences },
+        lifecycleOwner = lifecycleOwner
+    )
 
     enum class Preferences(val key: String) {
         ShowTimerWhenMinimized("showTimerWhenMinimized"),
@@ -27,7 +40,10 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         HudShowTime("hudShowTime"),
         HudShowResistance("hudShowResistance"),
         HudShowHeartRate("hudShowHeartRate"),
-        HudShowCalories("hudShowCalories")
+        HudShowCalories("hudShowCalories"),
+        ManualResistanceGuidanceEnabled("manualResistanceGuidanceEnabled"),
+        ManualResistanceTolerance("manualResistanceTolerance"),
+        ManualResistanceWarningSeconds("manualResistanceWarningSeconds")
     }
 
     companion object {
@@ -56,6 +72,9 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     private val mutableHudShowResistance = MutableStateFlow(true)
     private val mutableHudShowHeartRate = MutableStateFlow(true)
     private val mutableHudShowCalories = MutableStateFlow(true)
+    private val mutableManualResistanceGuidanceEnabled = MutableStateFlow(true)
+    private val mutableManualResistanceTolerance = MutableStateFlow("normal")
+    private val mutableManualResistanceWarningSeconds = MutableStateFlow(10)
 
     val showTimerWhenMinimized = mutableShowTimerWhenMinimized
     val bikePlusResistanceControlEnabled = mutableBikePlusResistanceControlEnabled
@@ -75,8 +94,11 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     val hudShowResistance = mutableHudShowResistance
     val hudShowHeartRate = mutableHudShowHeartRate
     val hudShowCalories = mutableHudShowCalories
+    val manualResistanceGuidanceEnabled = mutableManualResistanceGuidanceEnabled
+    val manualResistanceTolerance = mutableManualResistanceTolerance
+    val manualResistanceWarningSeconds = mutableManualResistanceWarningSeconds
 
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences = sharedPreferencesProvider()
 
     // Must be kept as reference, unowned lambda would be garbage collected
     private fun createSharedPreferencesListener() =
@@ -87,7 +109,6 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
     private val listener : SharedPreferences.OnSharedPreferenceChangeListener
 
     init {
-        sharedPreferences = context.getSharedPreferences(SharedPrefsName, Context.MODE_PRIVATE)
         updateFromSharedPrefs()
 
         listener = createSharedPreferencesListener()
@@ -195,6 +216,24 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         }
     }
 
+    fun setManualResistanceGuidanceEnabled(isEnabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(Preferences.ManualResistanceGuidanceEnabled.key, isEnabled)
+        }
+    }
+
+    fun setManualResistanceTolerance(toleranceId: String) {
+        sharedPreferences.edit {
+            putString(Preferences.ManualResistanceTolerance.key, toleranceId)
+        }
+    }
+
+    fun setManualResistanceWarningSeconds(seconds: Int) {
+        sharedPreferences.edit {
+            putInt(Preferences.ManualResistanceWarningSeconds.key, seconds)
+        }
+    }
+
     private fun updateFromSharedPrefs() {
         mutableShowTimerWhenMinimized.value =
             sharedPreferences
@@ -251,7 +290,15 @@ class ConfigurationRepository(context: Context, lifecycleOwner: LifecycleOwner) 
         mutableHudShowCalories.value =
             sharedPreferences
                 .getBoolean(Preferences.HudShowCalories.key, true)
-
+        mutableManualResistanceGuidanceEnabled.value =
+            sharedPreferences
+                .getBoolean(Preferences.ManualResistanceGuidanceEnabled.key, true)
+        mutableManualResistanceTolerance.value =
+            sharedPreferences
+                .getString(Preferences.ManualResistanceTolerance.key, "normal") ?: "normal"
+        mutableManualResistanceWarningSeconds.value =
+            sharedPreferences
+                .getInt(Preferences.ManualResistanceWarningSeconds.key, 10)
     }
 
     override fun close() {

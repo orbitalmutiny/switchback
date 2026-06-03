@@ -84,14 +84,21 @@ class OverlayDialogViewModel(
     }
     fun onOverlayLayout(size : IntSize){
         horizontalDragScreenRange = calculateHorizontalDragScreenRange(size.width)
-        val (_, currentHeight) = dialogSizeParams.value
-        dialogSizeParams.value = size.width to currentHeight
+        dialogSizeParams.value = size.width to size.height
+        // If HUD dimensions changed between builds, keep saved origin on-screen.
+        val clampedX = dialogOrigin.value.x.coerceIn(horizontalDragScreenRange)
+        if (clampedX != dialogOrigin.value.x) {
+            updateOrigin(dialogOrigin, x = clampedX)
+        }
     }
 
     fun onTimerOverlayLayout(size : IntSize){
         horizontalDragScreenRange = calculateHorizontalDragScreenRange(size.width)
-        val (_, currentHeight) = dialogSizeParams.value
-        minimizedDialogSizeParams.value = size.width to currentHeight
+        minimizedDialogSizeParams.value = size.width to size.height
+        val clampedX = dialogOrigin.value.x.coerceIn(horizontalDragScreenRange)
+        if (clampedX != dialogOrigin.value.x) {
+            updateOrigin(dialogOrigin, x = clampedX)
+        }
     }
     private var horizontalDragScreenRange = calculateHorizontalDragScreenRange(0)
 

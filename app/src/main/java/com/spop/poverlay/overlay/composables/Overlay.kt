@@ -1,4 +1,4 @@
-package com.spop.poverlay.overlay
+﻿package com.spop.poverlay.overlay
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.TweenSpec
@@ -86,14 +86,20 @@ fun Overlay(
         animationSpec = TweenSpec(VisibilityChangeDurationMs, 0, LinearEasing)
     )
 
+    // Use the actual measured main-content height so the offset exactly slides mainContent
+    // off-screen and lands the mini HUD at y=0 of the window. Fall back to the constant only
+    // before the first layout measurement fires.
+    val activeMainContentHeight = size.value.height.takeIf { it > 0 } ?: mainContentHeight
+
     val visibilityOffset by animateIntOffsetAsState(
         if (minimized) {
             when (location) {
                 // When the main content is hidden, move it off screen completely
-                OverlayLocation.Top -> IntOffset(0, -mainContentHeight)
-                OverlayLocation.Bottom -> IntOffset(0, mainContentHeight)
-                OverlayLocation.Left -> IntOffset(-size.value.width, 0)
-                OverlayLocation.Right -> IntOffset(size.value.width, 0)
+                OverlayLocation.Top -> IntOffset(0, -activeMainContentHeight)
+                OverlayLocation.Bottom -> IntOffset(0, activeMainContentHeight)
+                // Side-docked minimize keeps mini HUD visible; do not shift entire row off-screen.
+                OverlayLocation.Left -> IntOffset.Zero
+                OverlayLocation.Right -> IntOffset.Zero
             }
         } else {
             IntOffset.Zero
@@ -143,6 +149,7 @@ fun Overlay(
             speedLabel = speed,
             distanceLabel = distance,
             resistanceLabel = resistance,
+            guidanceState = routeHudState?.guidanceState,
             heartRateLabel = heartRate,
             caloriesLabel = calories,
             showPower = showPower,
@@ -159,7 +166,7 @@ fun Overlay(
     }
     val mainContent = @Composable {
         Box(modifier = Modifier
-            .then(if (location.isHorizontal) Modifier.requiredHeight(height) else Modifier.wrapContentHeight())
+            .wrapContentHeight()
             .wrapContentWidth(unbounded = true)
             .onSizeChanged {
                 if (it.width != size.value.width || it.height != size.value.height) {
@@ -192,7 +199,7 @@ fun Overlay(
                 modifier = Modifier
                     .wrapContentWidth(unbounded = true)
                     .padding(horizontal = 9.dp)
-                    .padding(bottom = 5.dp),
+                    .padding(bottom = 2.dp),
                 isHorizontal = location.isHorizontal,
                 power = power,
                 speed = speed,
@@ -260,15 +267,19 @@ fun Overlay(
                 }
                 OverlayLocation.Left,
                 OverlayLocation.Right -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (location == OverlayLocation.Right) {
-                            timer()
-                        }
-                        mainContent()
-                        if (location == OverlayLocation.Left) {
-                            timer()
+                    if (minimized) {
+                        timer()
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (location == OverlayLocation.Right) {
+                                timer()
+                            }
+                            mainContent()
+                            if (location == OverlayLocation.Left) {
+                                timer()
+                            }
                         }
                     }
                 }

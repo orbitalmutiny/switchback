@@ -18,13 +18,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spop.poverlay.R
 import com.spop.poverlay.overlay.BackgroundColorDefault
 import com.spop.poverlay.overlay.OverlayLocation
+import com.spop.poverlay.route.ManualResistanceGuidanceState
+import com.spop.poverlay.route.ResistanceDirection
 
 
 @Composable
@@ -37,6 +41,7 @@ fun OverlayMinimizedContent(
     speedLabel: String,
     distanceLabel: String,
     resistanceLabel: String,
+    guidanceState: ManualResistanceGuidanceState?,
     heartRateLabel: String,
     caloriesLabel: String,
     showPower: Boolean,
@@ -156,10 +161,10 @@ fun OverlayMinimizedContent(
             }
             if (showResistance) {
                 Spacer(modifier = if (isHorizontal) Modifier.width(4.dp) else Modifier.height(4.dp))
-                OverlayTimerField(
-                    modifier = Modifier.width(58.dp),
-                    timerLabel = resistanceLabel,
-                    iconDrawable = R.drawable.ic_resistance
+                MiniResistanceField(
+                    modifier = Modifier.width(94.dp),
+                    resistanceLabel = resistanceLabel,
+                    guidanceState = guidanceState
                 )
             }
             if (showHeartRate) {
@@ -201,6 +206,60 @@ fun OverlayMinimizedContent(
 }
 
 @Composable
+private fun MiniResistanceField(
+    modifier: Modifier,
+    resistanceLabel: String,
+    guidanceState: ManualResistanceGuidanceState?
+) {
+    val (indicator, color) = miniGuidanceIndicator(guidanceState)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Image(
+            modifier = Modifier
+                .requiredHeight(20.dp)
+                .requiredWidth(16.dp)
+                .padding(vertical = 4.dp),
+            painter = painterResource(id = R.drawable.ic_resistance),
+            contentDescription = null,
+        )
+        Text(
+            text = resistanceLabel,
+            color = Color.White,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = indicator,
+            color = color,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private fun miniGuidanceIndicator(guidanceState: ManualResistanceGuidanceState?): Pair<String, Color> =
+    when (guidanceState) {
+        is ManualResistanceGuidanceState.AdjustmentNeeded -> if (guidanceState.direction == ResistanceDirection.Up) {
+            "\u2191" to Color(0xFFFACC15)
+        } else {
+            "\u2193" to Color(0xFFF97316)
+        }
+        is ManualResistanceGuidanceState.Upcoming -> if (guidanceState.direction == ResistanceDirection.Up) {
+            "\u2197" to Color(0xFF3B82F6)
+        } else {
+            "\u2198" to Color(0xFF3B82F6)
+        }
+        is ManualResistanceGuidanceState.InRange -> "\u2022" to Color(0xFF22C55E)
+        is ManualResistanceGuidanceState.Stale -> "\u2022" to Color.White
+        else -> "\u2022" to Color.White.copy(alpha = 0.5f)
+    }
+
+@Composable
 private fun OverlayTimerField(
     modifier: Modifier,
     timerLabel: String,
@@ -223,8 +282,11 @@ private fun OverlayTimerField(
         Text(
             timerLabel,
             color = Color.White,
-            fontSize = 19.sp,
+            fontSize = if (timerLabel.length > 6) 17.sp else 19.sp,
             textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             modifier = Modifier
                 .fillMaxWidth()
         )
