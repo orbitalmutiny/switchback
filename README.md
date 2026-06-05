@@ -104,6 +104,127 @@ Switchback includes opt-in resistance automation for the Peloton Bike+.
 
 ---
 
+## Install with OpenPelo
+
+These steps walk through installing the current Switchback APK onto a Peloton tablet by using OpenPelo.
+
+### 1. Download OpenPelo on your computer
+
+Go here:
+
+https://github.com/doudar/Openpelo/releases
+
+Download the correct version for your computer:
+
+- Windows: `OpenPelo.exe`
+- Mac: `OpenPelo`
+
+OpenPelo handles ADB setup automatically and is built for installing apps onto Android-based devices like Peloton.
+
+### 2. Download the Switchback APK
+
+Go here:
+
+https://github.com/orbitalmutiny/switchback/releases
+
+Download:
+
+- the latest `switchback-*.apk` release asset
+
+Save it somewhere obvious, like your Desktop.
+
+### 3. Connect the Peloton to your computer
+
+Use USB.
+
+For most Peloton tablets, this means a USB cable from your computer to the Peloton tablet.
+
+### 4. Enable Developer Options on the Peloton
+
+On the Peloton tablet:
+
+- `Settings -> About`
+- Tap `Build Number` 7 times
+
+That should unlock:
+
+- `Developer Options`
+
+### 5. Enable USB debugging
+
+On the Peloton tablet:
+
+- `Settings -> System -> Developer Options`
+
+Turn on:
+
+- `USB debugging`
+
+OpenPelo's setup flow expects USB debugging to be enabled.
+
+### 6. Launch OpenPelo
+
+Open the OpenPelo app on your computer.
+
+It should detect the connected Peloton.
+
+### 7. Approve the USB debugging prompt
+
+On the Peloton screen, you may see:
+
+- `Allow USB debugging?`
+
+Check:
+
+- `Always allow from this computer`
+
+Then tap:
+
+- `OK`
+
+### 8. Install the APK
+
+In OpenPelo, look for an option like:
+
+- `Install APK`
+- `Install local APK`
+
+Select:
+
+- the Switchback APK you downloaded from the latest GitHub release
+
+Then run the install.
+
+### 9. Wait for install success
+
+OpenPelo should show a success message when the APK is installed.
+
+### 10. Launch Switchback
+
+On the Peloton, open your launcher or app drawer and find:
+
+- `Switchback`
+
+Launch it from there.
+
+### Common failure points
+
+If OpenPelo does not see the Peloton:
+
+- Unplug USB, plug it back in, check the USB debugging prompt, then restart OpenPelo.
+
+If install fails:
+
+- Make sure the APK is compatible with the Peloton tablet architecture.
+- Make sure the file fully downloaded.
+- Try uninstalling the old Switchback build first.
+
+If Switchback installs but you cannot find it:
+
+- Install or open a launcher through OpenPelo, then look for Switchback in the app list.
+
+---
+
 ## License
 
 Switchback is released under the [Business Source License 1.1](LICENSE).
